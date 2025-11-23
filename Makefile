@@ -1,5 +1,5 @@
 run:
-	mkdir build
+	mkdir -p build
 	gcc main.c -o build/main
 	build/main
 

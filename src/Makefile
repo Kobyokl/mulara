@@ -5,3 +5,5 @@ run_program:
 	build/main test_roms/tetris.gb
 clean:
 	rm -r build
+
+#testing working on different device

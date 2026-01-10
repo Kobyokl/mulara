@@ -1,40 +1,37 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <gbstructs.h>
 
-typedef struct{
-    uint8_t A; //accumulator reguster
-    uint8_t F; //flag register
-
-    uint16_t BC;
-    uint16_t DE;
-    uint16_t HL;
-
-    uint16_t SP; // stack pointer
-    uint16_t PC; // program register
-
-} SharpState_t;
-
-int SM83_disassembler(SharpState_t *CPU_State){
+uint8_t* ProcessROM(FILE *ROM, size_t ROMSIZE){
     /*
-        Given a certain opcode evaluate the opcode and update the program counter accordingly
-
-        Returns the number of machine cycles the instruction used
+        processes a ROM file and turns it into an array of uint8's
     */
-    // OpCode and CPU_State-PC reference the same block of memory
-
-    switch(CPU_State->PC) {
-
-        case 0x01:
-        //
-        case 0xC3:
-        // Opcode + LSB(nn) + MSB(nn) [together form a 16 bit instruction address]
-            printf("Jump to memory address : ", CPU_State->PC + 0); //should be the next word in the .gb file
-            return 4;
+    if(ROM == NULL){
+        printf("\nROM not loaded\n");
+        return NULL;
     }
 
+    // Read file byte by byte
+    uint8_t *ROMBuffer = malloc(ROMSIZE);
+
+    fread(ROMBuffer, ROMSIZE, 1, ROM);
+    fclose(ROM);
+
+    return ROMBuffer;
 }
 
+
 int main(int argc, char *argv[]){
+    size_t ROMSIZE;
+    FILE *RAW_ROM = fopen(argv[1], "rb");
+    uint8_t *ROM;
+
+    fseek(RAW_ROM, 0, SEEK_END);
+    ROMSIZE = ftell(RAW_ROM);
+    rewind(RAW_ROM);
+
+    ROM = ProcessROM(RAW_ROM, ROMSIZE);
+
     SharpState_t sharpState = { //initializes the state of the cpu
         .A = 0x01,
 
@@ -45,30 +42,11 @@ int main(int argc, char *argv[]){
         // written as binary number to better see each bit (cuz they r important)
         .F = 0b00000000,
 
-        .PC = 0x0100,
+        .PC = 0x0000, // each instruction
         .SP = 0xfffe,
     };
 
-    const FILE *ROM = fopen(argv[1], "rb");
-    if(ROM == NULL){
-        printf("\nROM not loaded\n");
-        return -1;
-    }
 
-    int byte;
-    size_t count = 0; //size_t is basically used as a unsigned int... better than limiting it's size cuz. we dont know how big a rom is gonna b because of mapping
-
-    // Read file byte-by-byte
-    while((byte = fgetc(ROM)) != EOF){
-        printf("%02X", (unsigned char) byte);
-        count++;
-
-        if(count % 16  == 0){
-            printf("\n");
-        }
-    }
-    fclose(ROM);
-    printf("\n Bytes Read: %zu \n", count);
     return 0;
 
 }

@@ -15,6 +15,7 @@ typedef struct SharpState{
     uint16_t SP; // stack pointer
     uint16_t PC; // program counter indexes to a byte in the array of uint8_t instructions
 
+    char state; // can be h, s, or n (halt, stopped, or normal)
     
 } SharpState_t;
 

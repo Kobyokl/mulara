@@ -3,6 +3,9 @@
 
 #include "cpu_core.h"
 
+// maybe move these somewhere else
+extern SharpState_t sharpstate;
+extern GBMemory_t GBMem; 
 
 int main(int argc, char *argv[]){
     size_t ROMSIZE;

@@ -23,11 +23,86 @@ uint8_t half_carry_8bit_sub(uint8_t num1, uint8_t num2) {
 
 void sm83_instruction_handler(GBMemory_t *mem, SharpState_t *CPU_State){
 
-       uint8_t opcode = fetch_byte(mem, CPU_State);
+       uint8_t opcode = fetch_byte(mem, CPU_State); // 1 m cycle
 
        switch(opcode){
         case(0x00):
             break; 
+
+        case(0x10):
+            CPU_State->state = 's';
+        
+        /*
+        ========================================================================================================
+                                            8-bit Load/Store/Move
+        ========================================================================================================                                    
+        */
+
+        case(0x02): 
+        {
+            write_byte(mem, CPU_State->BC, CPU_State->A); // 1 m cycle
+            break; 
+        }
+        case(0x12): 
+        {
+            write_byte(mem, CPU_State->DE, CPU_State->A); // 1 m cycle
+            break; 
+        }
+        case(0x22): 
+        {
+            write_byte(mem, CPU_State->HL, CPU_State->A); // 1 m cycle
+            CPU_State->HL++; 
+            break; 
+        }
+        case(0x32): 
+        {
+            write_byte(mem, CPU_State->HL, CPU_State->A); // 1 m cycle
+            CPU_State->HL--; 
+            break; 
+        }
+
+        case(0x06): 
+        {
+            uint8_t newB = fetch_byte(mem, CPU_State); // 1 m cycle
+
+            CPU_State->F &= 0xFF; //leave states unmodified 
+
+            CPU_State->BC = (CPU_State->BC & 0x00FF) | (newB << 8); 
+            break;
+        }
+        case(0x0A):
+        {
+            uint8_t deref_BC = read_byte(mem, CPU_State->BC); 
+
+            CPU_State->A = deref_BC; 
+        }
+        case(0x1A):
+        {
+            uint8_t deref_DE = read_byte(mem, CPU_State->DE); 
+
+            CPU_State->A = deref_DE; 
+        }
+        case(0x2A):
+        {
+            uint8_t deref_HL = read_byte(mem, CPU_State->HL); 
+
+            CPU_State->A = deref_HL; 
+            CPU_State->HL++; 
+        }
+        case(0x3A):
+        {
+            uint8_t deref_HL = read_byte(mem, CPU_State->HL); 
+
+            CPU_State->A = deref_HL; 
+            CPU_State->HL--; 
+        }
+
+
+        /*
+        ========================================================================================================
+                                            16-bit Load/Store/Move
+        ========================================================================================================                                    
+        */
 
         case(0x01):
         {
@@ -37,22 +112,32 @@ void sm83_instruction_handler(GBMemory_t *mem, SharpState_t *CPU_State){
             break; 
         }
         
-        case(0x02): 
+        case(0x08):
         {
-            CPU_State->BC = (uint16_t) CPU_State->A ; 
-            break; 
-        }
+            uint8_t LSB = fetch_byte(mem, CPU_State);
+            uint8_t MSB = fetch_byte(mem, CPU_State);
+            uint16_t nn = (MSB << 8) | LSB; 
             
+            write_byte(mem, nn, (uint8_t) (CPU_State->SP & 0x00FF)); //write lower bits first
+            write_byte(mem, nn + 1, (uint8_t) ((CPU_State->SP & 0xFF00) >> 8));  //write higher bits last
+            break;
+        }
+
+        /*
+        ========================================================================================================
+                                            8-bit Arithmetic Logic Unit
+        ========================================================================================================                                    
+        */
+
         case(0x03): 
         {
-            CPU_State->BC++; 
+            CPU_State->BC++; // 1 m cycle
             break;
         }
 
         case(0x04):
         {
             uint8_t B = (uint8_t)(CPU_State->BC >> 8);
-
             CPU_State->F &= 0x10; // clear all but carry
 
             CPU_State->F |= half_carry_8bit(B , 1) << 5; //half carry flag
@@ -63,7 +148,6 @@ void sm83_instruction_handler(GBMemory_t *mem, SharpState_t *CPU_State){
             if(B == 0){ // zero flag
                 CPU_State->F |= 0x80;
             }
-            
             
             CPU_State->BC = (CPU_State->BC & 0x00FF) | (B << 8); //clears B and sets it to our new incremented B
             break; 
@@ -88,15 +172,23 @@ void sm83_instruction_handler(GBMemory_t *mem, SharpState_t *CPU_State){
             break;
         }
 
-        case(0x06): 
-            uint8_t B = fetch_byte(mem, CPU_State); 
+        
 
-            CPU_State->F &= 0xF0; //leave states unmodified 
+        case(0x07): 
+            CPU_State->F &= 0; //unset all other flags
 
-            CPU_State->BC = (CPU_State->BC & 0x00FF) | (B << 8); 
-            break;
-
-
+            if(CPU_State->A & 0x80){
+                CPU_State->F |= 0b00010000; // set the carry flag 
+                CPU_State->A = (CPU_State->A << 1) + 1; 
+            }else{ 
+                CPU_State->A <<= 1; 
+            }
+            break; 
+            
+        
+        case(0x09): 
+            
+            
         case(0xC3):
                 uint8_t LSB = fetch_byte(mem, CPU_State);
                 uint8_t MSB = fetch_byte(mem, CPU_State);

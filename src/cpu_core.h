@@ -1,9 +1,8 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <gbstructs.h>
+#pragma once
 
-uint8_t read_byte(GBMemory_t *mem, uint16_t addr);
-void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value);
-uint8_t fetch_byte(GBMemory_t *mem, SharpState_t *CPU_State);
+#include "bus.h"
 
-void sm83_instructionHandler(GBMemory_t *mem, SharpState_t *CPU_State);
+uint8_t half_carry_flagged(); // checks if the half carry flag should be set or naw
+void sm83_instruction_handler(GBMemory_t *mem, SharpState_t *CPU_State); //handles all cpu instructions
+
+

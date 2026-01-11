@@ -1,9 +1,12 @@
+#pragma once 
+
 #include <stdint.h>
 
+// a struct to keep track of cpu states 
 typedef struct SharpState{
     uint8_t A; //accumulator reguster
     uint8_t F; //flag register
-    uint8_t int_enable;
+    uint8_t CB_Prefix; // keep track of whether
 
     uint16_t BC;
     uint16_t DE;
@@ -11,21 +14,31 @@ typedef struct SharpState{
 
     uint16_t SP; // stack pointer
     uint16_t PC; // program counter indexes to a byte in the array of uint8_t instructions
+
+    
 } SharpState_t;
 
+// struct to store ROM info 
 typedef struct Cartridge{
-    long  size;
+    long size;
     uint8_t *ROM;
     uint8_t MBC_type;
     //bank switching stuff... extra ram... blah blah blah
-}Cartridge_t;
+} Cartridge_t;
 
+// the gb's memory thingy
 typedef struct GBMemory{
     uint8_t ROM[0x8000];
     uint8_t VRAM[0x2000];
     uint8_t WRAM[0x2000];
     uint8_t OAM[0xA0];
     uint8_t HRAM[0x7F];
-
+    uint8_t IORegisters[0xFFFF - 0xFF80];
+    uint8_t InterruptEnable;
     //etc
-}GBMemory_t;
+} GBMemory_t;
+
+
+// initialize global sharpstate and gbmem variables
+extern SharpState_t sharpstate;
+extern GBMemory_t GBMem; 

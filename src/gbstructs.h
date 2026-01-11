@@ -38,6 +38,8 @@ typedef struct GBMemory{
     //etc
 } GBMemory_t;
 
+// put this somwhere else gng :sob: 
+uint8_t* ProcessROM(FILE *ROM, size_t ROMSIZE); 
 
 // initialize global sharpstate and gbmem variables
 extern SharpState_t sharpstate;

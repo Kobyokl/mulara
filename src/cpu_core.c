@@ -60,6 +60,38 @@ void sm83_instruction_handler(GBMemory_t *mem, SharpState_t *CPU_State){
             CPU_State->HL--;
             break;
         }
+        case(0x42):
+        {
+            uint8_t D = (CPU_State->DE & 0xFF00) >> 8;
+
+            CPU_State->BC = (CPU_State->BC & 0x00FF) | (D << 8);
+            break;
+        }
+        case(0x52):
+        {
+            // a debug instruction
+            uint8_t D = (CPU_State->DE & 0xFF00) >> 8;
+
+            CPU_State->DE = (CPU_State->DE & 0x00FF) | (D << 8);
+            break;
+        }
+        case(0x62):
+        {
+
+            uint8_t D = (CPU_State->DE & 0xFF00) >> 8;
+
+            CPU_State->HL = (CPU_State->HL & 0x00FF) | (D << 8);
+            break;
+        }
+        case(0x63):
+        {
+
+            uint8_t D = (CPU_State->DE & 0xFF00) >> 8;
+
+            write_byte(mem, CPU_State->HL, D);
+
+            break;
+        }
 
         case(0x06):
         {
@@ -94,9 +126,95 @@ void sm83_instruction_handler(GBMemory_t *mem, SharpState_t *CPU_State){
 
             CPU_State->F &= 0xFF; //leave states unmodified
 
-            write_byte(mem, CPU_State->HL, value);
+            write_byte(mem, CPU_State->HL, value); // 1 m cycl
             break;
         }
+        case(0x46):
+        {
+            uint8_t value = read_byte(mem, CPU_State->HL);
+
+            CPU_State->BC = (CPU_State->BC & 0x00FF) | (value << 8);
+            break;
+        }
+        case(0x56):
+        {
+            uint8_t value = read_byte(mem, CPU_State->HL);
+
+            CPU_State->DE = (CPU_State->DE & 0x00FF) | (value << 8);
+            break;
+        }
+        case(0x66):
+        {
+            uint8_t value = read_byte(mem, CPU_State->HL);
+
+            CPU_State->HL = (CPU_State->HL & 0x00FF) | (value << 8);
+            break;
+        }
+        case(0x76):
+        {
+            CPU_State->state = 'h';
+            break;
+        }
+
+        case(0x40):
+        {
+            uint8_t B = (CPU_State->BC & 0xFF00) >> 8;
+
+            CPU_State->BC = (CPU_State->BC & 0x00FF) | (B << 8);
+            break;
+        }
+        case(0x50):
+        {
+            uint8_t B = (CPU_State->BC & 0xFF00) >> 8;
+
+            CPU_State->DE = (CPU_State->DE & 0x00FF) | (B << 8);
+            break;
+        }
+        case(0x60):
+        {
+            uint8_t B = (CPU_State->BC & 0xFF00) >> 8;
+
+            CPU_State->HL = (CPU_State->HL & 0x00FF) | (B << 8);
+            break;
+        }
+        case(0x70):
+        {
+            uint8_t B = (CPU_State->BC & 0xFF00) >> 8;
+
+            write_byte(mem, CPU_State->HL, B);
+            break;
+        }
+
+        case(0x41):
+        {
+            uint8_t C = (CPU_State->BC & 0xFF00) >> 8;
+
+            CPU_State->BC = (CPU_State->BC & 0x00FF) | (C << 8);
+            break;
+        }
+        case(0x51):
+        {
+            uint8_t C = (CPU_State->BC & 0xFF00) >> 8;
+
+            CPU_State->DE = (CPU_State->DE & 0x00FF) | (C << 8);
+            break;
+        }
+        case(0x61):
+        {
+            uint8_t C = (CPU_State->BC & 0xFF00) >> 8;
+
+            CPU_State->DE = (CPU_State->DE & 0x00FF) | (C << 8);
+            break;
+        }
+        case(0x71):
+        {
+            uint8_t C = (CPU_State->BC & 0xFF00) >> 8;
+
+            write_byte(mem, CPU_State->HL, C);
+            break;
+        }
+
+
         case(0x0A):
         {
             uint8_t deref_BC = read_byte(mem, CPU_State->BC);

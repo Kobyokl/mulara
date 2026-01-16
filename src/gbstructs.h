@@ -1,8 +1,8 @@
-#pragma once 
+#pragma once
 
 #include <stdint.h>
 
-// a struct to keep track of cpu states 
+// a struct to keep track of cpu states
 typedef struct SharpState{
     uint8_t A; //accumulator reguster
     uint8_t F; //flag register
@@ -16,10 +16,10 @@ typedef struct SharpState{
     uint16_t PC; // program counter indexes to a byte in the array of uint8_t instructions
 
     char state; // can be h, s, or n (halt, stopped, or normal)
-    
+
 } SharpState_t;
 
-// struct to store ROM info 
+// struct to store ROM info
 typedef struct Cartridge{
     long size;
     uint8_t *ROM;
@@ -39,9 +39,9 @@ typedef struct GBMemory{
     //etc
 } GBMemory_t;
 
-// put this somwhere else gng :sob: 
-uint8_t* ProcessROM(FILE *ROM, size_t ROMSIZE); 
+// put this somwhere else gng :sob:
+uint8_t* ProcessROM(FILE *ROM, size_t ROMSIZE);
 
-// initialize global sharpstate and gbmem variables
+// initialize global sharpstate and gbmem variables (implement later icl...)
 extern SharpState_t sharpstate;
-extern GBMemory_t GBMem; 
+extern GBMemory_t GBMem;

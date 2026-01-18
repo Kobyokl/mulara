@@ -23,6 +23,8 @@ void set_8bit_reg(SharpState_t *CPU, uint16_t value, uint8_t identifier){
     }
 }
 
+// test_commit
+
 
 void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
     uint8_t opcode = fetch_byte(mem, CPU_State);

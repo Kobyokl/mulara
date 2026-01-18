@@ -6,7 +6,6 @@
 typedef struct SharpState{
     uint8_t A; //accumulator reguster
     uint8_t F; //flag register
-    uint8_t CB_Prefix; // keep track of whether
 
     uint16_t BC;
     uint16_t DE;
@@ -15,7 +14,7 @@ typedef struct SharpState{
     uint16_t SP; // stack pointer
     uint16_t PC; // program counter indexes to a byte in the array of uint8_t instructions
 
-    char state; // can be h, s, or n (halt, stopped, or normal)
+    char state; // can be h, s, l, or n (halt, stopped, locked, or normal)
 
 } SharpState_t;
 
@@ -43,5 +42,6 @@ typedef struct GBMemory{
 uint8_t* ProcessROM(FILE *ROM, size_t ROMSIZE);
 
 // initialize global sharpstate and gbmem variables (implement later icl...)
-extern SharpState_t sharpstate;
+extern const uint8_t gb_daa_table[256 * 8 * 2];
+extern SharpState_t CPU_State;
 extern GBMemory_t GBMem;

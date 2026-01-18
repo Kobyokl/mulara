@@ -2,7 +2,7 @@
 // header file that prototypes functions that emulate bus behavior
 #include <stdio.h>
 #include <stdint.h>
-#include <gbstructs.h>
+#include "gbstructs.h"
 
 
 

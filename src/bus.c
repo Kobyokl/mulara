@@ -69,7 +69,6 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
 uint8_t fetch_byte(GBMemory_t *mem, SharpState_t *CPU_State){
     /*
         returns opcode and increments program counter
-    */
-    CPU_State->PC++; 
-    return read_byte(mem, CPU_State->PC);
+    */ 
+    return read_byte(mem, CPU_State->PC++);
 }

@@ -304,7 +304,7 @@ void sm83_instruction_handler(GBMemory_t *mem, SharpState_t *CPU_State){
 
             CPU_State->F &= 0x10;
 
-            CPU_State->F |= half_carry_8bit_sub(B, 1) << 5; // H
+            CPU_State->F |=  _sub(B, 1) << 5; // H
             CPU_State->F |= 0b01000000;
 
             B--;

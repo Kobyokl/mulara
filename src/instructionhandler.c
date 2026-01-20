@@ -73,6 +73,8 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
     uint8_t opcode = fetch_byte(mem, CPU_State);
     uint8_t block = block_finder(opcode);
 
+    CPU_State->F &= 0xF0;
+
     switch(opcode){
         case(0): return;
         case(16):
@@ -93,11 +95,9 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
             read_byte(mem, 0);
             return;
         }
-
         /*
             Rotate, shift, and bit operation instructions
         */
-
         case(0b00000111):
         {
             CPU_State->F &= 0; //unset all other flags
@@ -341,9 +341,33 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
 
             set_8bit_reg(mem, CPU_State, val, dest);
         }
-        case(2):
+        case(2): // block 3 (8 bit arithmatic)
         {
+            uint8_t source = (opcode & 0b00000111);
 
+            switch((uint8_t) (opcode >> 3)){
+
+                case(32):
+                {
+                    uint8_t addVal = get_8bit_reg(mem, CPU_State, source);
+                    uint8_t A = CPU_State->A; // need this for half carry logic
+                    uint16_t result = A + addVal;
+
+                    CPU_State->A = (uint8_t) result;
+
+                    CPU_State->F = 0x00;
+
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    if ((A & 0x0F) + (addVal & 0x0F) > 0x0F) CPU_State->F |= 0x20;
+                    if (result > 0xFF) CPU_State->F |= 0x10;
+                    break;
+
+                }
+                case(33):
+                {
+                    
+                }
+            }
         }
     }
 

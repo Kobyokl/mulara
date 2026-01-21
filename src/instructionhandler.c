@@ -91,7 +91,7 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
         case(0b00011000):
         {
             //JR n16 takes 3 m-cycles
-            CPU_State->PC += (char) fetch_byte(mem, CPU_State);
+            CPU_State->PC += (int8_t) fetch_byte(mem, CPU_State);
             read_byte(mem, 0);
             return;
         }
@@ -222,7 +222,7 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                 case(0): // jr cond, imm8
                 {
                     uint8_t condition = (opcode & 0b00011000) >> 3;
-                    char offset = (char) fetch_byte(mem, CPU_State);
+                    int8_t offset = (int8_t) fetint8_t_byte(mem, CPU_State);
                     if(get_condition(CPU_State, condition)){
                         CPU_State->PC += offset;
                         read_byte(mem, 0);
@@ -365,7 +365,7 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                 }
                 case(33):
                 {
-                    
+
                 }
             }
         }

@@ -76,19 +76,19 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
     CPU_State->F &= 0xF0;
 
     switch(opcode){
-        case(0): return;
-        case(16):
+        case(0): return; // NOP
+        case(16): // stop (2 bytes)
         {
             CPU_State->state = 's';
             fetch_byte(mem, CPU_State);
             return;
         }
-        case(0b01110110):
+        case(0b01110110): // halt
         {
             CPU_State->state = 'h';
             return;
         }
-        case(0b00011000):
+        case(0b00011000): // jr imm8
         {
             //JR n16 takes 3 m-cycles
             CPU_State->PC += (int8_t) fetch_byte(mem, CPU_State);
@@ -98,7 +98,7 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
         /*
             Rotate, shift, and bit operation instructions
         */
-        case(0b00000111):
+        case(0b00000111): // rlca 
         {
             CPU_State->F &= 0; //unset all other flags
 
@@ -110,7 +110,7 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
             }
             return;
         }
-        case(0b00001111):
+        case(0b00001111): // rrca
         {
             CPU_State->F &= 0; //unset all other flags
             if(CPU_State->A & 1){
@@ -121,21 +121,21 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
             }
             return;
         }
-        case(0b00010111):
+        case(0b00010111): // rla
         {
             uint8_t carry = (CPU_State->A & 0x80) >> 7;
             CPU_State->A = (CPU_State->A << 1) | ((CPU_State->F & 0x10) >> 4); // just like 0x07 but bit zero is dependent on the carry flag BEFORE the flag is modified...
             CPU_State->F = carry << 4; // only carry flag
             return;
         }
-        case(0b00011111):
+        case(0b00011111): // rra
         {
             uint8_t carry = (CPU_State->A & 0x01);
             CPU_State->A = (CPU_State->A >> 1) | (CPU_State->F & 0x10); // just like 0x07 but bit zero is dependent on the carry flag BEFORE the flag is modified...
             CPU_State->F = carry << 4; // only carry flag
             return;
         }
-        case(0b00100111):
+        case(0b00100111): // daa
         {
             // this was taken from someone else's emulator icl
 
@@ -143,27 +143,27 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                         | ((((uint32_t)CPU_State->F >> 4) & 7) << 1);
             CPU_State->A = gb_daa_table[temp];
             CPU_State->F = gb_daa_table[temp + 1];
-            GB_CPUClockCounterAdd(4);
             return;
         }
-        case(0b00101111):
+        case(0b00101111): // cpl
         {
             CPU_State->A = ~CPU_State->A;
             CPU_State->F |= 0b01100000;
             return;
         }
-        case(0b00110111):
+        case(0b00110111): // scf
         {
             CPU_State->F |= 0b00010000;
             CPU_State->F &= 0b10011111;
             return;
         }
-        case(0b00111111):
+        case(0b00111111): // ccf
         {
             CPU_State->F ^= 0b00010000;
             CPU_State->F &= 0b10011111;
             return;
         }
+    }
 
     switch(block){
         case(0): // block 0
@@ -341,13 +341,13 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
 
             set_8bit_reg(mem, CPU_State, val, dest);
         }
-        case(2): // block 3 (8 bit arithmatic)
+        case(2): // block 2 (8 bit arithmatic)
         {
             uint8_t source = (opcode & 0b00000111);
 
             switch((uint8_t) (opcode >> 3)){
 
-                case(32):
+                case(16): // add
                 {
                     uint8_t addVal = get_8bit_reg(mem, CPU_State, source);
                     uint8_t A = CPU_State->A; // need this for half carry logic
@@ -363,10 +363,254 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                     break;
 
                 }
-                case(33):
+                case(17): // adc 
                 {
+                    uint8_t addVal = get_8bit_reg(mem, CPU_State, source);
+                    uint8_t carryVal = (CPU_State->F & 0b00010000) >> 4; 
+                    uint8_t A = CPU_State->A; // need this for half carry logic
+                    uint16_t result = A + addVal + carryVal; 
 
+                    CPU_State->A = (uint8_t) result;
+
+                    CPU_State->F = 0x00;
+
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    if ((A & 0x0F) + (addVal & 0x0F) > 0x0F) CPU_State->F |= 0x20;
+                    if (result > 0xFF) CPU_State->F |= 0x10;
+                    break;
                 }
+                case(18): //sub a, r8
+                {
+                    uint8_t subVal = get_8bit_reg(mem, CPU_State, source);
+                    uint8_t A = CPU_State->A; // need this for half carry logic
+                    uint8_t result = A - subVal;
+
+                    CPU_State->A = result; 
+
+                    CPU_State->F = 0x40;
+
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    if ((A & 0x0F) < (subVal & 0x0F)) CPU_State->F |= 0x20;
+                    if (A < subVal) CPU_State->F |= 0x10;
+                    break;
+                }
+                case(19): 
+                {
+                    uint8_t subVal = get_8bit_reg(mem, CPU_State, source);
+                    uint8_t A = CPU_State->A; // need this for half carry logic
+                    uint8_t carryVal = (CPU_State->F & 0b00010000) >> 4; 
+                    int8_t result = A - subVal - carryVal;
+
+                    CPU_State->A = result; 
+
+                    CPU_State->F = 0x40;
+
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    if ((A & 0x0F) < (subVal & 0x0F)) CPU_State->F |= 0x20;
+                    if (A < subVal) CPU_State->F |= 0x10;
+                    break;
+                }
+                case(20): 
+                {
+                    uint8_t andVal = get_8bit_reg(mem, CPU_State, source);
+
+                    CPU_State->A &= andVal; 
+
+                    CPU_State->F = 0x20;
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    break;
+                }
+                case(21): 
+                {
+                    uint8_t xorVal = get_8bit_reg(mem, CPU_State, source);
+
+                    CPU_State->A ^= xorVal; 
+
+                    CPU_State->F = 0x00;
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    break;
+                }
+                case(22):
+                {
+                    uint8_t orVal = get_8bit_reg(mem, CPU_State, source);
+
+                    CPU_State->A |= orVal; 
+
+                    CPU_State->F = 0x00;
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    break;
+                }
+                case(23): // cp a, r8 ... same as sub but doesnt update value of accumulator
+                {
+                    uint8_t subVal = get_8bit_reg(mem, CPU_State, source);
+                    uint8_t A = CPU_State->A; // need this for half carry logic
+                    uint8_t result = A - subVal;
+
+                    CPU_State->F = 0x40;
+
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    if ((A & 0x0F) < (subVal & 0x0F)) CPU_State->F |= 0x20;
+                    if (A < subVal) CPU_State->F |= 0x10;
+                    break;
+                }
+            }
+        }
+        case(3): // block 3 
+        {
+            switch(opcode){ 
+                case(0b11000110): 
+                { 
+                    uint8_t addVal = fetch_byte(mem, CPU_State);
+                    uint8_t A = CPU_State->A; // need this for half carry logic
+                    uint16_t result = A + addVal;
+
+                    CPU_State->A = (uint8_t) result;
+
+                    CPU_State->F = 0x00;
+
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    if ((A & 0x0F) + (addVal & 0x0F) > 0x0F) CPU_State->F |= 0x20;
+                    if (result > 0xFF) CPU_State->F |= 0x10;
+                    break;
+                }
+                case(0b11001110):
+                {
+                    uint8_t addVal = fetch_byte(mem, CPU_State);
+                    uint8_t carryVal = (CPU_State->F & 0b00010000) >> 4; 
+                    uint8_t A = CPU_State->A; // need this for half carry logic
+                    uint16_t result = A + addVal + carryVal; 
+
+                    CPU_State->A = (uint8_t) result;
+
+                    CPU_State->F = 0x00;
+
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    if ((A & 0x0F) + (addVal & 0x0F) > 0x0F) CPU_State->F |= 0x20;
+                    if (result > 0xFF) CPU_State->F |= 0x10;
+                    break;
+                }
+                case(0b11010110):
+                {
+                    uint8_t subVal = fetch_byte(mem, CPU_State); 
+                    uint8_t A = CPU_State->A; // need this for half carry logic
+                    uint8_t result = A - subVal;
+
+                    CPU_State->A = result; 
+
+                    CPU_State->F = 0x40;
+
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    if ((A & 0x0F) < (subVal & 0x0F)) CPU_State->F |= 0x20;
+                    if (A < subVal) CPU_State->F |= 0x10;
+                    break;
+                }
+                case(0b11011110): 
+                {
+                    uint8_t subVal = fetch_byte(mem, CPU_State);
+                    uint8_t A = CPU_State->A; // need this for half carry logic
+                    uint8_t carryVal = (CPU_State->F & 0b00010000) >> 4; 
+                    int8_t result = A - subVal - carryVal;
+
+                    CPU_State->A = result; 
+
+                    CPU_State->F = 0x40;
+
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    if ((A & 0x0F) < (subVal & 0x0F)) CPU_State->F |= 0x20;
+                    if (A < subVal) CPU_State->F |= 0x10;
+                    break;
+                }
+                case(0b11100110):
+                {
+                    uint8_t andVal = fetch_byte(mem, CPU_State);
+
+                    CPU_State->A &= andVal; 
+
+                    CPU_State->F = 0x20;
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    break;
+                }
+                case(0b11110110): 
+                {
+                    uint8_t xorVal = fetch_byte(mem, CPU_State);
+
+                    CPU_State->A ^= xorVal; 
+
+                    CPU_State->F = 0x00;
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    break;
+                }
+                case(0b11111110):
+                {
+                    uint8_t orVal = fetch_byte(mem, CPU_State);
+
+                    CPU_State->A |= orVal; 
+
+                    CPU_State->F = 0x00;
+                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    break;
+                }
+
+                /* =====================================================================
+                    Above was literally just the same as block 2 but with immediates
+                   =====================================================================
+                */ 
+               case(0b11001001):
+               {
+                    uint8_t spLSB = read_byte(mem, CPU_State->SP++); // reads whatever value's at the stack pointer the increments the stack pointer
+                    uint8_t spMSB = read_byte(mem, CPU_State->SP++); 
+
+                    CPU_State->PC = (spMSB << 8) | spLSB; 
+
+                    read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
+               }
+               case(0b11011001): 
+               {
+                    uint8_t spLSB = read_byte(mem, CPU_State->SP++); // reads whatever value's at the stack pointer the increments the stack pointer
+                    uint8_t spMSB = read_byte(mem, CPU_State->SP++); 
+
+                    CPU_State->PC = (spMSB << 8) | spLSB; 
+                    CPU_State->IME = 1; 
+
+                    read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
+               }
+               case(0b11000011):
+               {
+                    uint8_t LSB = fetch_byte(mem, CPU_State); 
+                    uint8_t MSB = fetch_byte(mem, CPU_State); 
+
+                    CPU_State->PC = (MSB << 8) | LSB; 
+
+                    read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
+               }
+               case(0b11101001):
+               {
+                    CPU_State->PC = CPU_State->HL; 
+                    break;
+               }
+               case(0b11001101): 
+               {
+                    uint8_t LSB = fetch_byte(mem, CPU_State); // M2
+                    uint8_t MSB = fetch_byte(mem, CPU_State); // M3
+                    uint16_t addr = (MSB << 8) | LSB;
+
+                    read_byte(mem, 0);
+
+                    write_byte(mem, CPU_State->SP--, CPU_State->PC & 0xFF);
+
+                    write_byte(mem, CPU_State->SP--, (CPU_State->PC >> 8) & 0xFF);
+
+                    CPU_State->PC = addr;
+                    break;
+               }
+               case(0b11110011):
+               {
+                    CPU_State->IME = 0;
+               }
+               case(0b11111011):
+               {
+                    CPU_State->IME = 1;
+               }
             }
         }
     }

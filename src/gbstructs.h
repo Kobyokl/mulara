@@ -6,7 +6,9 @@
 typedef struct SharpState{
     uint8_t A; // accumulator reguster
     uint8_t F; // flag register
+
     uint8_t IME; // interrupt master enable
+    uint8_t IME_next; // if this is 1 then IME is set to 1 in the following machine cycle
 
     uint16_t BC;
     uint16_t DE;
@@ -16,7 +18,7 @@ typedef struct SharpState{
     uint16_t PC; // program counter indexes to a byte in the array of uint8_t instructions
 
     char state; // can be h, s, l, or n (halt, stopped, locked, or normal)
-    
+
 
 } SharpState_t;
 

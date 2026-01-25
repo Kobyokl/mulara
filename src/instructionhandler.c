@@ -98,7 +98,7 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
         /*
             Rotate, shift, and bit operation instructions
         */
-        case(0b00000111): // rlca 
+        case(0b00000111): // rlca
         {
             CPU_State->F &= 0; //unset all other flags
 
@@ -363,12 +363,12 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                     break;
 
                 }
-                case(17): // adc 
+                case(17): // adc
                 {
                     uint8_t addVal = get_8bit_reg(mem, CPU_State, source);
-                    uint8_t carryVal = (CPU_State->F & 0b00010000) >> 4; 
+                    uint8_t carryVal = (CPU_State->F & 0b00010000) >> 4;
                     uint8_t A = CPU_State->A; // need this for half carry logic
-                    uint16_t result = A + addVal + carryVal; 
+                    uint16_t result = A + addVal + carryVal;
 
                     CPU_State->A = (uint8_t) result;
 
@@ -385,7 +385,7 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                     uint8_t A = CPU_State->A; // need this for half carry logic
                     uint8_t result = A - subVal;
 
-                    CPU_State->A = result; 
+                    CPU_State->A = result;
 
                     CPU_State->F = 0x40;
 
@@ -394,14 +394,14 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                     if (A < subVal) CPU_State->F |= 0x10;
                     break;
                 }
-                case(19): 
+                case(19):
                 {
                     uint8_t subVal = get_8bit_reg(mem, CPU_State, source);
                     uint8_t A = CPU_State->A; // need this for half carry logic
-                    uint8_t carryVal = (CPU_State->F & 0b00010000) >> 4; 
+                    uint8_t carryVal = (CPU_State->F & 0b00010000) >> 4;
                     int8_t result = A - subVal - carryVal;
 
-                    CPU_State->A = result; 
+                    CPU_State->A = result;
 
                     CPU_State->F = 0x40;
 
@@ -410,21 +410,21 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                     if (A < subVal) CPU_State->F |= 0x10;
                     break;
                 }
-                case(20): 
+                case(20):
                 {
                     uint8_t andVal = get_8bit_reg(mem, CPU_State, source);
 
-                    CPU_State->A &= andVal; 
+                    CPU_State->A &= andVal;
 
                     CPU_State->F = 0x20;
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
                     break;
                 }
-                case(21): 
+                case(21):
                 {
                     uint8_t xorVal = get_8bit_reg(mem, CPU_State, source);
 
-                    CPU_State->A ^= xorVal; 
+                    CPU_State->A ^= xorVal;
 
                     CPU_State->F = 0x00;
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
@@ -434,7 +434,7 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                 {
                     uint8_t orVal = get_8bit_reg(mem, CPU_State, source);
 
-                    CPU_State->A |= orVal; 
+                    CPU_State->A |= orVal;
 
                     CPU_State->F = 0x00;
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
@@ -455,11 +455,11 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                 }
             }
         }
-        case(3): // block 3 
+        case(3): // block 3
         {
-            switch(opcode){ 
-                case(0b11000110): 
-                { 
+            switch(opcode){
+                case(0b11000110):
+                {
                     uint8_t addVal = fetch_byte(mem, CPU_State);
                     uint8_t A = CPU_State->A; // need this for half carry logic
                     uint16_t result = A + addVal;
@@ -476,9 +476,9 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                 case(0b11001110):
                 {
                     uint8_t addVal = fetch_byte(mem, CPU_State);
-                    uint8_t carryVal = (CPU_State->F & 0b00010000) >> 4; 
+                    uint8_t carryVal = (CPU_State->F & 0b00010000) >> 4;
                     uint8_t A = CPU_State->A; // need this for half carry logic
-                    uint16_t result = A + addVal + carryVal; 
+                    uint16_t result = A + addVal + carryVal;
 
                     CPU_State->A = (uint8_t) result;
 
@@ -491,11 +491,11 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                 }
                 case(0b11010110):
                 {
-                    uint8_t subVal = fetch_byte(mem, CPU_State); 
+                    uint8_t subVal = fetch_byte(mem, CPU_State);
                     uint8_t A = CPU_State->A; // need this for half carry logic
                     uint8_t result = A - subVal;
 
-                    CPU_State->A = result; 
+                    CPU_State->A = result;
 
                     CPU_State->F = 0x40;
 
@@ -504,14 +504,14 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                     if (A < subVal) CPU_State->F |= 0x10;
                     break;
                 }
-                case(0b11011110): 
+                case(0b11011110):
                 {
                     uint8_t subVal = fetch_byte(mem, CPU_State);
                     uint8_t A = CPU_State->A; // need this for half carry logic
-                    uint8_t carryVal = (CPU_State->F & 0b00010000) >> 4; 
+                    uint8_t carryVal = (CPU_State->F & 0b00010000) >> 4;
                     int8_t result = A - subVal - carryVal;
 
-                    CPU_State->A = result; 
+                    CPU_State->A = result;
 
                     CPU_State->F = 0x40;
 
@@ -524,17 +524,17 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                 {
                     uint8_t andVal = fetch_byte(mem, CPU_State);
 
-                    CPU_State->A &= andVal; 
+                    CPU_State->A &= andVal;
 
                     CPU_State->F = 0x20;
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
                     break;
                 }
-                case(0b11110110): 
+                case(0b11110110):
                 {
                     uint8_t xorVal = fetch_byte(mem, CPU_State);
 
-                    CPU_State->A ^= xorVal; 
+                    CPU_State->A ^= xorVal;
 
                     CPU_State->F = 0x00;
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
@@ -544,7 +544,7 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                 {
                     uint8_t orVal = fetch_byte(mem, CPU_State);
 
-                    CPU_State->A |= orVal; 
+                    CPU_State->A |= orVal;
 
                     CPU_State->F = 0x00;
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
@@ -554,41 +554,44 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                 /* =====================================================================
                     Above was literally just the same as block 2 but with immediates
                    =====================================================================
-                */ 
+                */
                case(0b11001001):
                {
                     uint8_t spLSB = read_byte(mem, CPU_State->SP++); // reads whatever value's at the stack pointer the increments the stack pointer
-                    uint8_t spMSB = read_byte(mem, CPU_State->SP++); 
+                    uint8_t spMSB = read_byte(mem, CPU_State->SP++);
 
-                    CPU_State->PC = (spMSB << 8) | spLSB; 
-
-                    read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
-               }
-               case(0b11011001): 
-               {
-                    uint8_t spLSB = read_byte(mem, CPU_State->SP++); // reads whatever value's at the stack pointer the increments the stack pointer
-                    uint8_t spMSB = read_byte(mem, CPU_State->SP++); 
-
-                    CPU_State->PC = (spMSB << 8) | spLSB; 
-                    CPU_State->IME = 1; 
+                    CPU_State->PC = (spMSB << 8) | spLSB;
 
                     read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
-               }
-               case(0b11000011):
-               {
-                    uint8_t LSB = fetch_byte(mem, CPU_State); 
-                    uint8_t MSB = fetch_byte(mem, CPU_State); 
-
-                    CPU_State->PC = (MSB << 8) | LSB; 
-
-                    read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
-               }
-               case(0b11101001):
-               {
-                    CPU_State->PC = CPU_State->HL; 
                     break;
                }
-               case(0b11001101): 
+               case(0b11011001):
+               {
+                    uint8_t spLSB = read_byte(mem, CPU_State->SP++); // reads whatever value's at the stack pointer the increments the stack pointer
+                    uint8_t spMSB = read_byte(mem, CPU_State->SP++);
+
+                    CPU_State->PC = (spMSB << 8) | spLSB;
+                    CPU_State->IME = 1;
+
+                    read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
+                    break;
+               }
+               case(0b11000011): /// jp imm16
+               {
+                    uint8_t LSB = fetch_byte(mem, CPU_State);
+                    uint8_t MSB = fetch_byte(mem, CPU_State);
+
+                    CPU_State->PC = (MSB << 8) | LSB;
+
+                    read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
+                    break;
+               }
+               case(0b11101001): // jp hl
+               {
+                    CPU_State->PC = CPU_State->HL;
+                    break;
+               }
+               case(0b11001101): // call imm16
                {
                     uint8_t LSB = fetch_byte(mem, CPU_State); // M2
                     uint8_t MSB = fetch_byte(mem, CPU_State); // M3
@@ -603,13 +606,103 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                     CPU_State->PC = addr;
                     break;
                }
+               case(0b11100010): // ldh [c], a
+               {
+                    uint8_t C = (uint8_t) (CPU_State->BC & 0x00FF);
+
+                    write_byte(mem, (uint16_t) (0xFF00 | C), CPU_State->A);
+
+                    break;
+               }
+               case(0b11100000):
+               {
+                    uint8_t low_address = fetch_byte(mem, CPU_State);
+
+                    write_byte(mem, (uint16_t) (0xFF00 | low_address), CPU_State->A);
+                    break;
+               }
+               case(0b11101010):
+               {
+                    uint8_t LSB = fetch_byte(mem, CPU_State); // M2
+                    uint8_t MSB = fetch_byte(mem, CPU_State); // M3
+                    uint16_t addr = (MSB << 8) | LSB;
+
+                    write_byte(mem, addr, CPU_State->A);
+                    break;
+               }
+               case(0b11110010):
+               {
+                    uint8_t C = (uint8_t) (CPU_State->BC & 0x00FF);
+                    uint8_t value = read_byte(mem, (uint16_t) (0xFF00 | C));
+
+                    CPU_State->A = value;
+                    break;
+               }
+               case(0b11110000):
+               {
+                    uint8_t low_address = fetch_byte(mem, CPU_State);
+                    uint8_t value = read_byte(mem, (uint16_t) (0xFF00 | low_address));
+
+                    CPU_State->A = value;
+               }
+               case(0b11111010): // ld a, [imm8]
+               {
+                    uint8_t LSB = fetch_byte(mem, CPU_State); // M2
+                    uint8_t MSB = fetch_byte(mem, CPU_State); // M3
+                    uint8_t value = read_byte(mem, (uint16_t) (MSB << 8) | LSB);
+
+                    CPU_State->A = value;
+                    break;
+               }
+               case(0b11101000): // get cycles right here
+               {
+                    int8_t addVal = fetch_byte(mem, CPU_State);
+                    uint16_t SP = CPU_State->SP;
+
+                    CPU_State->SP += addVal;
+
+                    CPU_State->F = 0x00;
+                    if (((SP & 0xF) + ((uint16_t)addVal & 0xF)) > 0xF) CPU_State->F |= 0x20; // H
+                    if (((SP & 0xFF) + ((uint16_t)addVal & 0xFF)) > 0xFF) CPU_State->F |= 0x10; // C
+
+                    read_byte(mem, 0); // take extra cycles
+                    read_byte(mem, 0);
+
+                    break;
+
+               }
+               case(0b11111000): // get cycles right here as well
+               {
+                    int8_t addVal = fetch_byte(mem, CPU_State);
+                    uint16_t SP = CPU_State->SP;
+
+                    CPU_State->F = 0x00;
+                    if (((SP & 0xF) + ((uint16_t)addVal & 0xF)) > 0xF) CPU_State->F |= 0x20; // H
+                    if (((SP & 0xFF) + ((uint16_t)addVal & 0xFF)) > 0xFF) CPU_State->F |= 0x10; // C
+
+                    CPU_State->HL = SP + addVal;
+
+                    read_byte(mem, 0); // take extra cycle
+
+                    break;
+               }
+               case(0b11111001):
+               {
+                    CPU_State->SP = CPU_State->HL;
+
+                    read_byte(mem, 0); // take extra cycle
+
+                    break;
+               }
                case(0b11110011):
                {
                     CPU_State->IME = 0;
+                    break;
                }
                case(0b11111011):
                {
-                    CPU_State->IME = 1;
+                    CPU_State->IME_next = 1;
+                    break;
                }
             }
         }

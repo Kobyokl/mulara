@@ -25,7 +25,7 @@ uint8_t read_byte(GBMemory_t *mem, uint16_t addr){
         return mem->HRAM[addr - 0xFF80];
     }else{
         //Interrupt Enable Register
-        //idrk what to do 
+        //idrk what to do
     }
     //etc
 }

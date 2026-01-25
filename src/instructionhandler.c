@@ -1,4 +1,4 @@
-#include "bus.h"
+#include "instructionhandler.h"
 
 extern const uint8_t gb_daa_table[256 * 8 * 2]; // In file daa_table.c
 
@@ -68,6 +68,32 @@ uint8_t get_8bit_reg(GBMemory_t *mem, SharpState_t *CPU, uint8_t identifier){
     }
     return 0;
 }
+
+uint16_t set_16bitstk(SharpState_t *CPU, uint8_t identifier, uint16_t value){
+    switch(identifier){
+        case(0): CPU->BC = value; return CPU->BC;
+        case(1): CPU->DE = value; return CPU->DE;
+        case(2): CPU->HL = value; return CPU->HL;
+        case(3):
+        {
+            CPU->A = (uint8_t) ((value & 0xFF00) >> 8);
+            CPU->F = (uint8_t) (value & 0x00FF);
+
+            return (((uint16_t) CPU->A) << 8 ) | CPU->F;
+        }
+    }
+}
+
+uint16_t get_16bitstk(SharpState_t *CPU, uint8_t identifier){
+    switch(identifier){
+        case(0): return CPU->BC;
+        case(1): return CPU->DE;
+        case(2): return CPU->HL;
+        case(3): return (((uint16_t) CPU->A) << 8 ) | CPU->F;
+    }
+}
+
+
 
 void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
     uint8_t opcode = fetch_byte(mem, CPU_State);
@@ -599,9 +625,9 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     read_byte(mem, 0);
 
-                    write_byte(mem, CPU_State->SP--, CPU_State->PC & 0xFF);
+                    write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
 
-                    write_byte(mem, CPU_State->SP--, (CPU_State->PC >> 8) & 0xFF);
+                    write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF);
 
                     CPU_State->PC = addr;
                     break;
@@ -644,8 +670,10 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                     uint8_t value = read_byte(mem, (uint16_t) (0xFF00 | low_address));
 
                     CPU_State->A = value;
+                    break;
+
                }
-               case(0b11111010): // ld a, [imm8]
+               case(0b11111010): // ld a, [imm16]
                {
                     uint8_t LSB = fetch_byte(mem, CPU_State); // M2
                     uint8_t MSB = fetch_byte(mem, CPU_State); // M3
@@ -667,7 +695,6 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     read_byte(mem, 0); // take extra cycles
                     read_byte(mem, 0);
-
                     break;
 
                }
@@ -683,7 +710,6 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                     CPU_State->HL = SP + addVal;
 
                     read_byte(mem, 0); // take extra cycle
-
                     break;
                }
                case(0b11111001):
@@ -691,7 +717,6 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                     CPU_State->SP = CPU_State->HL;
 
                     read_byte(mem, 0); // take extra cycle
-
                     break;
                }
                case(0b11110011):
@@ -704,12 +729,250 @@ void better_instruction_handler(SharpState_t *CPU_State, GBMemory_t *mem){
                     CPU_State->IME_next = 1;
                     break;
                }
+               case(0b11001011): // CB Prefix
+               {
+                    uint8_t next_opcode = fetch_byte(mem, CPU_State);
+
+                    switch(next_opcode){
+                        uint8_t cbBlock = block_finder(next_opcode);
+                        uint8_t identifier = next_opcode & 0b00000111;
+                        uint8_t bit_index = (next_opcode & 0b00111000) >> 3;
+
+                        case(0):
+                        {
+                            uint8_t instruction_identifier = (next_opcode & 0b11111000) >> 3;
+
+                            switch(instruction_identifier){
+                                case(0): /// rlc r8
+                                {
+                                    CPU_State->F &= 0; //unset all other flags
+
+                                    uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
+
+                                    if(_register & 0x80){
+                                        CPU_State->F |= 0b00010000; // set the carry flag
+                                        set_8bit_reg(mem, CPU_State, ((_register << 1) + 1), identifier);
+                                    }else{
+                                        set_8bit_reg(mem, CPU_State, _register << 1, identifier);;
+                                    }
+
+                                    if(~get_8bit_reg(mem, CPU_State, identifier)) CPU_State->F |= 0x80;
+
+                                    return; // usign returns here cuz idk if break is goonna break out of all these switch cases...
+                                }
+                                case(1):
+                                {
+                                    CPU_State->F &= 0; //unset all other flags
+
+                                    uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
+                                    uint8_t updated_register;
+                                    if(_register & 1){
+                                        CPU_State->F |= 0b00010000; // set the carry flag
+                                        updated_register = set_8bit_reg(mem, CPU_State, ((_register >> 1) | 0x80), identifier);
+                                    }else{
+                                        updated_register = set_8bit_reg(mem, CPU_State, _register >> 1, identifier);;
+                                    }
+
+                                    if(!updated_register) CPU_State->F |= 0x80; // if its zero
+
+                                    return;
+                                }
+                                case(2):
+                                {
+                                    CPU_State->F &= 0;
+
+                                    uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
+                                    uint8_t carry_bit = (CPU_State->F & 0x10) >> 4;
+
+                                    uint8_t updated_register = set_8bit_reg(mem, CPU_State, (_register << 1) + carry_bit , identifier);
+
+                                    if(!updated_register) CPU_State->F |= 0x80; // if its zero
+                                    if(_register & 0b10000000) CPU_State->F |= 0x10;
+                                    return;
+                                }
+                                case(3):
+                                {
+                                    CPU_State->F &= 0;
+
+                                    uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
+                                    uint8_t carry_bit = (CPU_State->F & 0x10) << 3;
+
+                                    uint8_t updated_register = set_8bit_reg(mem, CPU_State, (_register << 1) | carry_bit , identifier);
+
+
+                                    if(!updated_register) CPU_State->F |= 0x80; // if its zero
+                                    if(_register & 0b00000001) CPU_State->F |= 0x10;
+
+                                    return;
+                                }
+                                case(4):
+                                {
+                                    CPU_State->F &= 0;
+
+                                    uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
+
+                                    uint8_t updated_register = set_8bit_reg(mem, CPU_State, (_register << 1) , identifier);
+
+                                    if(!updated_register) CPU_State->F |= 0x80; // if its zero
+                                    if(_register & 0b10000000) CPU_State->F |= 0x10; // carry bit
+                                    return;
+                                }
+                                case(5):
+                                {
+                                    CPU_State->F &= 0;
+
+                                    uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
+                                    uint8_t shift_arith = (uint8_t) (((int8_t) _register) >> 1);
+                                    uint8_t updated_register = set_8bit_reg(mem, CPU_State, shift_arith , identifier);
+
+                                    if(!updated_register) CPU_State->F |= 0x80; // if its zero
+                                    if(_register & 0b00000001) CPU_State->F |= 0x10; // carry bit
+                                    return;
+                                }
+                                case(6):
+                                {
+                                    CPU_State->F = 0x80;
+
+                                    uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
+
+                                    // swap the 2 nibbles in the register
+                                    uint8_t updated_register = set_8bit_reg(mem, CPU_State, ((_register & 0b00001111) << 4) | ((_register & 0b11110000) >> 4), identifier);
+                                    return;
+                                }
+                                case(7):
+                                {
+                                    uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
+                                    uint8_t shift_arith = _register >> 1;
+                                    uint8_t updated_register = set_8bit_reg(mem, CPU_State, shift_arith , identifier);
+
+                                    if(!updated_register) CPU_State->F |= 0x80; // if its zero
+                                    if(_register & 0b10000000) CPU_State->F |= 0x10; // carry bit
+                                    return;
+                                }
+                            }
+                        }
+                        case(1):
+                        {
+                            uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
+
+                            if(!(_register >> bit_index) & 1) CPU_State->F |= 0x80;
+
+                            CPU_State->F &= 0b10110000;
+                            CPU_State->F |= 0x20;
+                            break;
+                        }
+                        case(2):
+                        {
+                            uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
+                            uint8_t value = _register & (~(1 << bit_index));
+
+                            set_8bit_reg(mem, CPU_State, value, identifier);
+
+                            return;
+                        }
+                        case(3):
+                        {
+                            uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
+                            uint8_t value = _register | (1 << bit_index);
+
+                            set_8bit_reg(mem, CPU_State, value, identifier);
+
+                            return;
+                        }
+                    }
+               }
+               switch(opcode & 0b00000111){
+                    case(0):
+                    {
+                        uint8_t condition = get_condition(CPU_State, (opcode & 0b00011000) >> 3);
+                        uint8_t spLSB, spMSB;
+                        if(condition){
+                            spLSB = read_byte(mem, CPU_State->SP++); // reads whatever value's at the stack pointer the increments the stack pointer
+                            spMSB = read_byte(mem, CPU_State->SP++);
+                            CPU_State->PC = (spMSB << 8) | spLSB;
+
+                            read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
+                            read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
+                        }
+
+                        read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
+                        return;
+                    }
+                    case(2):
+                    {
+                        uint8_t condition = get_condition(CPU_State, (opcode & 0b00011000) >> 3);
+                        uint8_t LSB = fetch_byte(mem, CPU_State);;
+                        uint8_t MSB = fetch_byte(mem, CPU_State);;
+
+                        if(condition)
+                            CPU_State->PC = (MSB << 8) | LSB;
+                            read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
+
+                        return;
+                    }
+                    case(4):
+                    {
+                        uint8_t condition = get_condition(CPU_State, (opcode & 0b00011000) >> 3);
+                        uint8_t LSB = fetch_byte(mem, CPU_State); // M2
+                        uint8_t MSB = fetch_byte(mem, CPU_State); // M3
+
+                        uint16_t addr = (MSB << 8) | LSB;
+
+                        read_byte(mem, 0);
+
+                        if(condition){
+                            write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
+                            write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF);
+
+                            read_byte(mem ,0);
+
+                            CPU_State->PC = addr;
+                        }
+
+                        return;
+                    }
+                    case(7):
+                    {
+                        uint16_t addr = (opcode & 0b00111000); // ight shift by 3 then left shift by 3 cuz have to multiply by 8
+
+
+                        write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
+                        write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF);
+
+                        read_byte(mem, 0);
+
+                        CPU_State->PC = addr;
+                        return;
+                    }
+                    case(1):
+                    {
+                        uint8_t identifier = (opcode & 0b00110000) >> 4;
+
+                        uint8_t lsb = read_byte(mem, CPU_State->SP++);
+                        uint8_t msb = read_byte(mem, CPU_State->SP++);
+                        uint16_t value = (uint16_t) (msb << 8) | lsb;
+
+                        set_16bitstk(CPU_State, identifier, value);
+                        return;
+                    }
+                    case(5):
+                    {
+                        uint8_t identifier = (opcode & 0b00110000) >> 4;
+                        uint16_t _register = get_16bitstk(CPU_State, identifier);
+
+                        write_byte(mem, --CPU_State->SP, _register & 0xFF);
+                        write_byte(mem, --CPU_State->SP, (_register >> 8) & 0xFF);
+
+                        read_byte(mem, 0);
+                        return;
+                    }
+               }
             }
         }
     }
 
     // forbidden opcodes
     if(opcode == 0xD3 || opcode == 0xDB || opcode == 0xDD || opcode == 0xE3 || opcode == 0xE4 || opcode == 0xEB || opcode == 0xEC || opcode == 0xED || opcode == 0xF4 || opcode == 0xFC || opcode == 0xFD)
-        CPU_State->state = 'l';
+        CPU_State->state = 'l'; // locked
 
 }

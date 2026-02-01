@@ -47,20 +47,13 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
         //Forbidden memory
     }else if(addr < 0xFF80){
         switch(addr){
-            case 0xFF46:
-                // start_dma(value);
-                break;
-            case 0xFF04:
-                // div = 0; // writing resets DIV
-                break;
-            default:
-                // io[addr - 0xFF00] = value;
+            case 0xFF
 
         }
     }else if(addr < 0xFFFF){
         //HRAM
     }else{
-        //Interrupt Enable Register
+        // 0 0 0 (joypad) (serial) (timer) (lcd) (vblank)
     }
 }
 

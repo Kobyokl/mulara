@@ -2,11 +2,17 @@
 
 #include "bus.h"
 
-uint8_t half_carry_16bit(uint16_t num1, uint16_t num2); // checks if there's a half carry flag  between 16 bit operands
-uint8_t half_carry_16bit_sub(uint16_t num1, uint16_t num2); // similar thing but w/ subtraction 
-uint8_t half_carry_8bit(uint8_t num1, uint8_t num2); // checks if there's a half carry flag  between 8 bit operands
-uint8_t half_carry_8bit_sub(uint8_t num1, uint8_t num2); // similar thing but w/ subtraction
+uint8_t block_finder(uint8_t opcode);
 
-void sm83_instruction_handler(GBMemory_t *mem, SharpState_t *CPU_State); //handles SharpSM83 Instruction Set
+uint8_t get_condition(SharpState_t *CPU, uint8_t identifier);
 
+uint16_t set_16bit_reg(SharpState_t *CPU, uint16_t value, uint8_t identifier);
+uint16_t get_16bit_reg(SharpState_t *CPU, uint8_t identifier);
 
+uint8_t set_8bit_reg(GBMemory_t *mem, SharpState_t *CPU, uint8_t value, uint8_t identifier);
+uint8_t get_8bit_reg(GBMemory_t *mem, SharpState_t *CPU, uint8_t identifier);
+
+uint16_t set_16bitstk(SharpState_t *CPU, uint8_t identifier, uint16_t value);
+uint16_t get_16bitstk(SharpState_t *CPU, uint8_t identifier);
+
+void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem);

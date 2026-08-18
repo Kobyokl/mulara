@@ -1,10 +1,12 @@
-#include "gbstructs.h"
+#include "bus.h"
+#include "timers.h"
 
 
-void tick(unsigned int *sys_clock){
-    (*sys_clock)++; // increment our system clock
 
-    // timer_update()
+void tick(GBMemory_t *mem){
+    mem->sys_clock++; // increment our system clock (1 m-cycle)
+
+    timer_update(mem);
     // ppu_update()
     // apu_update()
 
@@ -12,42 +14,50 @@ void tick(unsigned int *sys_clock){
 
 uint8_t read_byte(GBMemory_t *mem, uint16_t addr){
     if(addr < 0x8000){
-        tick(&mem->sys_clock);
+        tick(mem);
         return mem->ROM[addr];
     }else if(addr < 0xA000){
         //VRAM
-        tick(&mem->sys_clock);
+        tick(mem);
         return mem->VRAM[addr - 0x8000];
     }else if(addr < 0xC000){
         //ExRAM (on cartridge)
-        tick(&mem->sys_clock);
+        tick(mem);
         return mem->ExRAM[addr - 0xA000];
     }else if(addr < 0xE000){
         //WRAM
-        tick(&mem->sys_clock);
+        tick(mem);
         return mem->WRAM[addr - 0xC000];
     }else if(addr < 0xFE00){
         //Echo RAM (Mirror of WRAM)
-        tick(&mem->sys_clock);
+        tick(mem);
         return mem->WRAM[addr - 0xE000];
     }else if(addr < 0xFEA0){
         //OAM
-        tick(&mem->sys_clock);
+        tick(mem);
         return mem->OAM[addr - 0xFE00];
     }else if(addr < 0xFF00){
         //Forbidden memory (nintendo says u cant use this memory)
-        tick(&mem->sys_clock);
+        tick(mem);
         return (uint8_t) 0;
     }else if(addr < 0xFF80){
         //IO Register
-        tick(&mem->sys_clock);
+        tick(mem);
+
+        switch(addr){ // handle the fact that i'm now making div a 16 bit register
+            case 0xFF04:
+            {
+                return mem->DIV >> 8;
+            }
+        }
         return mem->IORegisters[addr - 0xFF00];
     }else if(addr < 0xFFFF){
-        tick(&mem->sys_clock);
+        tick(mem);
+
         return mem->HRAM[addr - 0xFF80];
     }else{
         //Interrupt Enable Register
-        tick(&mem->sys_clock);
+        tick(mem);
         return mem->interrupt_enable;
     }
 
@@ -76,7 +86,11 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
         ; //Forbidden memory
     }else if(addr < 0xFF80){
         if(addr == 0xFF04){
-            mem->IORegisters[0x04] = 0;
+            mem->DIV = 0;
+        }else if(addr == 0xFF05 && mem->TIMA_overflowing){
+            mem->TIMA_overflowing = 0; // cancel the interrupt and the writing to TIMA with TMA...
+        }else if(addr == 0xFF05 && mem->TIMA_reloading){
+            ; // ignore the write ! the value in TMA is going to be written to TIMA not whatever we passed in this function
         }else{
             mem->IORegisters[addr - 0xFF00] = value;
         }
@@ -87,7 +101,7 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
         mem->interrupt_enable = value;
     }
 
-    tick(&mem->sys_clock);
+    tick(mem);
 
     return;
 }

@@ -31,16 +31,16 @@ void request_interrupt(Interrupt_t inter, GBMemory_t *mem){
 }
 
 
-Interrupt_t identify_interrupt(uint8_t IF){
-    if(IF & 1){
+Interrupt_t identify_interrupt(uint8_t IF, uint8_t IE){
+    if(IF & IE & 1){
         return VBlank;
-    }else if(IF & 2){
+    }else if(IF & IE & 2){
         return LCD;
-    }else if(IF & 4){
+    }else if(IF & IE & 4){
         return Timer;
-    }else if(IF & 8){
+    }else if(IF & IE & 8){
         return Serial;
-    }else if(IF & 16){
+    }else if(IF & IE & 16){
         return Joypad;
     }
     return NAI;
@@ -49,8 +49,24 @@ Interrupt_t identify_interrupt(uint8_t IF){
 
 void process_interrupt(SharpState_t *CPU_State, GBMemory_t *mem){ // handles the interrupt at hand... lasts for 5 M-Cycles
 
-    Interrupt_t inter = identify_interrupt(mem->IORegisters[0x0F]);
+    Interrupt_t inter = identify_interrupt(mem->IORegisters[0x0F], mem->interrupt_enable);
 
+
+    if(inter == NAI) return;
+
+
+    /*
+        same code for calling a function  just gonna change it up a little bit in order to jummp to intterupt code
+    */
+
+    // wait for 2 m-cycles
+    tick(mem);
+    tick(mem);
+    // push current pc onto the stack
+    write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF); // put the TOP 8 bits on the stack
+    write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
+
+    // here's the final "generic fetch"
     switch(inter){
         case VBlank:
             mem->IORegisters[0x0F] &= 0x1E;
@@ -75,18 +91,6 @@ void process_interrupt(SharpState_t *CPU_State, GBMemory_t *mem){ // handles the
     }
 
     mem->IME = 0;
-
-    /*
-        same code for calling an instruction just gonna change it up a little bit in order to jummp to intterupt code
-    */
-
-    // wait for 2 m-cycles
-    tick(&mem->sys_clock);
-    tick(&mem->sys_clock);
-    // push current pc onto the stack
-    write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
-    write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF); // put the bottom 8 bits on the stack
-    // here's the final "generic fetch"
-    tick(&mem->sys_clock);
+    tick(mem);
 
 }

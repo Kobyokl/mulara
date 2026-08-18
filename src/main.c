@@ -62,10 +62,10 @@ int main(int argc, char *argv[]){
             if(IE & IF){ // check if there are any interrupts that need to be serviced before processing next instruction
                 process_interrupt(&main_emu.CPU, &main_emu.mem);
             }else{
-                instruction_step(&main_emu.CPU, &main_emu.mem);
+                handle_instruction(&main_emu.CPU, &main_emu.mem);
             }
         }else{
-            instruction_step(&main_emu.CPU, &main_emu.mem);
+            handle_instruction(&main_emu.CPU, &main_emu.mem);
         }
     }
 

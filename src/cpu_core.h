@@ -1,6 +1,9 @@
 #pragma once
 
 #include "bus.h"
+#include "timers.h"
+#include "interrupt.h"
+
 
 uint8_t block_finder(uint8_t opcode);
 

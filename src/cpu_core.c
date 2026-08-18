@@ -95,7 +95,7 @@ uint16_t get_16bitstk(SharpState_t *CPU, uint8_t identifier){
 
 
 
-void instruction_step(SharpState_t *CPU_State, GBMemory_t *mem){
+void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
     uint8_t opcode = fetch_byte(mem, CPU_State);
     uint8_t block = block_finder(opcode);
 
@@ -106,7 +106,7 @@ void instruction_step(SharpState_t *CPU_State, GBMemory_t *mem){
         case(16): // stop (2 bytes)
         {
             CPU_State->state = 's';
-            mem->IORegisters[0x04] = 0; 
+            mem->IORegisters[0x04] = 0;
             fetch_byte(mem, CPU_State);
             return;
         }
@@ -626,9 +626,10 @@ void instruction_step(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     read_byte(mem, 0);
 
-                    write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
 
-                    write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF);
+                    write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF); // make sure you write the high byte first
+
+                    write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
 
                     CPU_State->PC = addr;
                     break;

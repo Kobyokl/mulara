@@ -42,6 +42,7 @@ typedef struct GBMemory {
 
 
     uint8_t IORegisters[0xFFFF - 0xFF80];
+    uint16_t DIV; // we dont actually use IORegisters[0x04] bc that's actuallly a 16 bit value
 
     // in this array the i/o registers lie.... they can be accessed by indexing like
     // IORegisters[0x04] corresponds with the DIV register which is 0xFF04
@@ -52,6 +53,11 @@ typedef struct GBMemory {
     //etc... prolly bank switching stuff goes here later
 
     unsigned int sys_clock; // this isn't in the gameboy's memory map but i'm putting it here to serve as a system clock for rn..
+    unsigned int and_result; // for the sake of handling obscure timer operation
+    unsigned int prev_and_result;
+    unsigned int TIMA_overflowing; // if TIMA overflows then update its value one cycle later so we need this variabel to keep track of that state
+    unsigned int TIMA_reloading;
+
 } GBMemory_t;
 
 
@@ -62,7 +68,7 @@ typedef struct Emulator { /// define ona these in the program entry point...
 
 } Emulator_t;
 
-// put this somwhere else gng 
+// put this somwhere else gng
 uint8_t* ProcessROM(FILE *ROM, size_t ROMSIZE);
 
 // initialize global sharpstate and gbmem variables (implement later icl...)

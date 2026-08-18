@@ -1,77 +1,64 @@
-#include "cpu_core.h"
+#include "bus.h"
 #include "interrupt.h"
+#include "timers.h"
 
 
-/*
+void timer_update(GBMemory_t *mem){
 
+    if(mem->TIMA_overflowing){ // update the TIMA register on the next M-cycle
+        mem->TIMA_reloading = 1;
+        mem->IORegisters[0x05] = mem->IORegisters[0x06];
+        mem->TIMA_overflowing = 0;
+        request_interrupt(Timer, mem);
 
-      CHANGE THIS CODE LATER SO THAT YOU PROPERLY HANDLE THE OBSCURE TIMER BEHAVIOR AND SHIIIII LIKEEEE THATTTT
-
-
-
-
-*/
-
-void timer_update(SharpState_t *CPU_State, GBMemory_t *mem){
-    DIV_handler(CPU_State, mem);
-    TIMA_handler(CPU_State, mem);
-}
-
-void DIV_handler(SharpState_t *CPU_State, GBMemory_t *mem){
-    if(!(mem->sys_clock % 17556)){ // handles incrementing of the div register...
-        mem->IORegisters[0x04]++;
+    }else{
+        mem->TIMA_reloading = 0;
     }
+
+    if(DIV_handler(mem)){
+        TIMA_handler(mem);
+    }
+
 }
 
-void TIMA_handler(SharpState_t *CPU_State, GBMemory_t *mem){
+int DIV_handler(GBMemory_t *mem){ // increments the div register, handles timer behavior, and is called upon every m-cycle tick
+
+    mem->DIV += 4;
+
+    int ret;
+
+    uint8_t TAC_enabled = (mem->IORegisters[0x07] >> 2) & 1;
+    uint8_t clock_sel = mem->IORegisters[0x07] & 3;
+    uint8_t sel_bit; // the bit that was selected from the DIV register
+
+    switch(clock_sel){
+        case 0: sel_bit = (mem->DIV >> 9) & 1; break;
+        case 1: sel_bit = (mem->DIV >> 3) & 1;; break;
+        case 2: sel_bit = (mem->DIV >> 5) & 1;; break;
+        case 3: sel_bit = (mem->DIV >> 7) & 1;; break;
+    }
+
+    mem->and_result = sel_bit & TAC_enabled;
+
+    if(mem->prev_and_result > mem->and_result){ // falling edge detection
+        ret = 1;
+    } else{
+        ret = 0;
+    }
+
+    mem->prev_and_result = mem->and_result; // update prev_and_result to check for the next falling edge
+
+    return ret;
+
+}
+
+
+void TIMA_handler(GBMemory_t *mem){
     // now lets hadnle the incrementing of the TIMA register
 
-    uint8_t TAC = mem->IORegisters[0x07];
-
-    unsigned int enable = (TAC >> 2) & 1;
-    unsigned int clock_select = TAC & 3;
-
-    if(enable){
-        switch(clock_select){
-            case 0:
-            {
-                if(!(mem->sys_clock % 256)){
-                    if(++mem->IORegisters[0x05]){
-                        mem->IORegisters[0x05] = mem->IORegisters[0x06];
-                        request_interrupt(Timer, mem);
-                    }
-                }
-                break;
-            }
-            case 1:
-            {
-                if(!(mem->sys_clock % 4)){
-                    if(!(++mem->IORegisters[0x05])){
-                        mem->IORegisters[0x05] = mem->IORegisters[0x06];
-                        request_interrupt(Timer, mem);
-                    }
-                }
-                break;
-            }
-            case 2:
-            {
-                if(!(mem->sys_clock % 16)){
-                    if(!(++mem->IORegisters[0x05])){
-                        mem->IORegisters[0x05] = mem->IORegisters[0x06];
-                        request_interrupt(Timer, mem);
-                    }
-                }
-                break;
-            }
-            case 3:
-            {
-                if(!(mem->sys_clock % 64)){
-                    if(!(++mem->IORegisters[0x05])){
-                        mem->IORegisters[0x05] = mem->IORegisters[0x06];
-                        request_interrupt(Timer, mem);
-                    }
-                }
-            }
-        }
+    if( !(++mem->IORegisters[0x05]) ){
+        // the reloading of this register and the interrupt can be canceleld by writing to the TIMA register
+        // between the two M-cycles that this function may be called on (between one of the 4 T-cycles)
+        mem->TIMA_overflowing = 1;
     }
 }

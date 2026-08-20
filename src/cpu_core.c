@@ -14,8 +14,8 @@ uint8_t get_condition(SharpState_t *CPU, uint8_t identifier){
     switch(identifier){
         case (0): return (CPU->F & 0x80) == 0; // nz
         case (1): return (CPU->F & 0x80) != 0; // z
-        case (2): return (CPU->F & 0x01) == 0; // nc
-        case (3): return (CPU->F & 0x01) != 0; // c
+        case (2): return (CPU->F & 0x10) == 0; // nc
+        case (3): return (CPU->F & 0x10) != 0; // c
     }
     return 0;
 }
@@ -44,11 +44,11 @@ uint16_t get_16bit_reg(SharpState_t *CPU, uint8_t identifier){
 uint8_t set_8bit_reg(GBMemory_t *mem, SharpState_t *CPU, uint8_t value, uint8_t identifier){
     switch(identifier){
         case(0): CPU->BC = (CPU->BC & 0x00FF) | (value << 8); return CPU->BC >> 8; // b
-        case(1): CPU->BC |= (uint16_t) value; return CPU->BC & 0x00FF; // c
+        case(1): CPU->BC = (CPU->BC & 0xFF00) | value; return CPU->BC & 0x00FF; // c
         case(2): CPU->DE = (CPU->DE & 0x00FF) | (value << 8); return CPU->DE >> 8; // d
-        case(3): CPU->DE |= (uint16_t) value; return CPU->DE & 0x00FF; // e
+        case(3): CPU->DE = (CPU->DE & 0xFF00) | value; return CPU->DE & 0x00FF; // e
         case(4): CPU->HL = (CPU->HL & 0x00FF) | (value << 8); return CPU->HL >> 8; // h
-        case(5): CPU->HL |= (uint16_t) value; return CPU->HL & 0x00FF; // l
+        case(5): CPU->HL = (CPU->HL & 0xFF00) | value; return CPU->HL & 0x00FF; // l
         case(6): write_byte(mem, CPU->HL, value); return 0; // [hl] (uses an m-cycle) returns zero by defualt so we have to handle some instructions here seperately
         case(7): CPU->A = value; return CPU->A;// a
     }
@@ -99,6 +99,11 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
     uint8_t opcode = fetch_byte(mem, CPU_State);
     uint8_t block = block_finder(opcode);
 
+    // forbidden opcodes
+    if(opcode == 0xD3 || opcode == 0xDB || opcode == 0xDD || opcode == 0xE3 || opcode == 0xE4 || opcode == 0xEB || opcode == 0xEC || opcode == 0xED || opcode == 0xF4 || opcode == 0xFC || opcode == 0xFD){
+        CPU_State->state = 'l'; // locked
+        return;
+    }
     CPU_State->F &= 0xF0;
 
     switch(opcode){
@@ -158,7 +163,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
         case(0b00011111): // rra
         {
             uint8_t carry = (CPU_State->A & 0x01);
-            CPU_State->A = (CPU_State->A >> 1) | (CPU_State->F & 0x10); // just like 0x07 but bit zero is dependent on the carry flag BEFORE the flag is modified...
+            CPU_State->A = (CPU_State->A >> 1) | ((CPU_State->F & 0x80)); // just like 0x07 but bit zero is dependent on the carry flag BEFORE the flag is modified...
             CPU_State->F = carry << 4; // only carry flag
             return;
         }
@@ -248,8 +253,14 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                 }
                 case(0): // jr cond, imm8
                 {
+                    // JR cc opcodes are 0x20 (0b00100000), 0x28 (0b00101000), 0x30 (0b01100000), 0x38 (0b00111000)
+                    if ((opcode & 0xE7) != 0x20) // 0b11100111
+                        break;
+
+
                     uint8_t condition = (opcode & 0b00011000) >> 3;
                     int8_t offset = (int8_t) fetch_byte(mem, CPU_State);
+                    
                     if(get_condition(CPU_State, condition)){
                         CPU_State->PC += offset;
                         read_byte(mem, 0);
@@ -344,7 +355,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     uint16_t value = get_16bit_reg(CPU_State, identifier);
 
                     CPU_State->HL += value;
-                    CPU_State->F &= 0b10011111;
+                    CPU_State->F &= 0b10111111;
 
                     if ( ( (old & 0x0FFF) + (value & 0x0FFF)) > 0x0FFF)
                         CPU_State->F |= 0x20; // half carry
@@ -367,6 +378,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
             uint8_t val = get_8bit_reg(mem, CPU_State, source);
 
             set_8bit_reg(mem, CPU_State, val, dest);
+            return;
         }
         case(2): // block 2 (8 bit arithmatic)
         {
@@ -387,7 +399,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
                     if ((A & 0x0F) + (addVal & 0x0F) > 0x0F) CPU_State->F |= 0x20;
                     if (result > 0xFF) CPU_State->F |= 0x10;
-                    break;
+                    return;
 
                 }
                 case(17): // adc
@@ -402,9 +414,9 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     CPU_State->F = 0x00;
 
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
-                    if ((A & 0x0F) + (addVal & 0x0F) > 0x0F) CPU_State->F |= 0x20;
+                    if ((A & 0x0F) + (addVal & 0x0F) + carryVal > 0x0F) CPU_State->F |= 0x20;
                     if (result > 0xFF) CPU_State->F |= 0x10;
-                    break;
+                    return;
                 }
                 case(18): //sub a, r8
                 {
@@ -419,7 +431,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
                     if ((A & 0x0F) < (subVal & 0x0F)) CPU_State->F |= 0x20;
                     if (A < subVal) CPU_State->F |= 0x10;
-                    break;
+                    return;
                 }
                 case(19):
                 {
@@ -433,9 +445,9 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     CPU_State->F = 0x40;
 
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
-                    if ((A & 0x0F) < (subVal & 0x0F)) CPU_State->F |= 0x20;
-                    if (A < subVal) CPU_State->F |= 0x10;
-                    break;
+                    if ((A & 0x0F) < (subVal & 0x0F) + carryVal ) CPU_State->F |= 0x20;
+                    if (A < (uint16_t) subVal + carryVal) CPU_State->F |= 0x10;
+                    return;
                 }
                 case(20):
                 {
@@ -445,7 +457,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     CPU_State->F = 0x20;
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
-                    break;
+                    return;
                 }
                 case(21):
                 {
@@ -455,7 +467,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     CPU_State->F = 0x00;
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
-                    break;
+                    return;
                 }
                 case(22):
                 {
@@ -465,7 +477,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     CPU_State->F = 0x00;
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
-                    break;
+                    return;
                 }
                 case(23): // cp a, r8 ... same as sub but doesnt update value of accumulator
                 {
@@ -475,10 +487,10 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     CPU_State->F = 0x40;
 
-                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
+                    if (result == 0) CPU_State->F |= 0x80;
                     if ((A & 0x0F) < (subVal & 0x0F)) CPU_State->F |= 0x20;
                     if (A < subVal) CPU_State->F |= 0x10;
-                    break;
+                    return;
                 }
             }
         }
@@ -498,7 +510,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
                     if ((A & 0x0F) + (addVal & 0x0F) > 0x0F) CPU_State->F |= 0x20;
                     if (result > 0xFF) CPU_State->F |= 0x10;
-                    break;
+                    return;
                 }
                 case(0b11001110):
                 {
@@ -512,9 +524,9 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     CPU_State->F = 0x00;
 
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
-                    if ((A & 0x0F) + (addVal & 0x0F) > 0x0F) CPU_State->F |= 0x20;
+                    if ((A & 0x0F) + (addVal & 0x0F) + carryVal > 0x0F) CPU_State->F |= 0x20;
                     if (result > 0xFF) CPU_State->F |= 0x10;
-                    break;
+                    return;
                 }
                 case(0b11010110):
                 {
@@ -529,7 +541,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
                     if ((A & 0x0F) < (subVal & 0x0F)) CPU_State->F |= 0x20;
                     if (A < subVal) CPU_State->F |= 0x10;
-                    break;
+                    return;
                 }
                 case(0b11011110):
                 {
@@ -543,39 +555,67 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     CPU_State->F = 0x40;
 
                     if (CPU_State->A == 0) CPU_State->F |= 0x80;
-                    if ((A & 0x0F) < (subVal & 0x0F)) CPU_State->F |= 0x20;
-                    if (A < subVal) CPU_State->F |= 0x10;
-                    break;
+                    if ((A & 0x0F)  < (subVal & 0x0F) + carryVal) CPU_State->F |= 0x20;
+                    if (A < (uint16_t) subVal + carryVal) CPU_State->F |= 0x10;
+                    return;
                 }
-                case(0b11100110):
+                case(0b11100110): // 0xE6 AND A, imm8
                 {
                     uint8_t andVal = fetch_byte(mem, CPU_State);
 
                     CPU_State->A &= andVal;
 
                     CPU_State->F = 0x20;
-                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
-                    break;
+                    if(CPU_State->A == 0)
+                        CPU_State->F |= 0x80;
+
+                    return;
                 }
-                case(0b11110110):
+
+                case(0b11101110): // 0xEE XOR A, imm8
                 {
                     uint8_t xorVal = fetch_byte(mem, CPU_State);
 
                     CPU_State->A ^= xorVal;
 
                     CPU_State->F = 0x00;
-                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
-                    break;
+                    if(CPU_State->A == 0)
+                        CPU_State->F |= 0x80;
+
+                    return;
                 }
-                case(0b11111110):
+
+                case(0b11110110): // 0xF6 OR A, imm8
                 {
                     uint8_t orVal = fetch_byte(mem, CPU_State);
 
                     CPU_State->A |= orVal;
 
                     CPU_State->F = 0x00;
-                    if (CPU_State->A == 0) CPU_State->F |= 0x80;
-                    break;
+                    if(CPU_State->A == 0)
+                        CPU_State->F |= 0x80;
+
+                    return;
+                }
+
+                case(0b11111110): // 0xFE CP A, imm8
+                {
+                    uint8_t subVal = fetch_byte(mem, CPU_State);
+                    uint8_t A = CPU_State->A;
+                    uint8_t result = A - subVal;
+
+                    CPU_State->F = 0x40;
+
+                    if(result == 0)
+                        CPU_State->F |= 0x80;
+
+                    if((A & 0x0F) < (subVal & 0x0F))
+                        CPU_State->F |= 0x20;
+
+                    if(A < subVal)
+                        CPU_State->F |= 0x10;
+
+                    return;
                 }
 
                 /* =====================================================================
@@ -590,7 +630,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     CPU_State->PC = (spMSB << 8) | spLSB;
 
                     read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
-                    break;
+                    return;
                }
                case(0b11011001):
                {
@@ -598,10 +638,10 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     uint8_t spMSB = read_byte(mem, CPU_State->SP++);
 
                     CPU_State->PC = (spMSB << 8) | spLSB;
-                    CPU_State->IME = 1;
+                    mem->IME = 1;
 
                     read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
-                    break;
+                    return;
                }
                case(0b11000011): /// jp imm16
                {
@@ -611,12 +651,12 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     CPU_State->PC = (MSB << 8) | LSB;
 
                     read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
-                    break;
+                    return;
                }
                case(0b11101001): // jp hl
                {
                     CPU_State->PC = CPU_State->HL;
-                    break;
+                    return;
                }
                case(0b11001101): // call imm16
                {
@@ -632,7 +672,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
 
                     CPU_State->PC = addr;
-                    break;
+                    return;
                }
                case(0b11100010): // ldh [c], a
                {
@@ -640,14 +680,14 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     write_byte(mem, (uint16_t) (0xFF00 | C), CPU_State->A);
 
-                    break;
+                    return;
                }
                case(0b11100000):
                {
                     uint8_t low_address = fetch_byte(mem, CPU_State);
 
                     write_byte(mem, (uint16_t) (0xFF00 | low_address), CPU_State->A);
-                    break;
+                    return;
                }
                case(0b11101010):
                {
@@ -656,7 +696,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     uint16_t addr = (MSB << 8) | LSB;
 
                     write_byte(mem, addr, CPU_State->A);
-                    break;
+                    return;
                }
                case(0b11110010):
                {
@@ -664,7 +704,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     uint8_t value = read_byte(mem, (uint16_t) (0xFF00 | C));
 
                     CPU_State->A = value;
-                    break;
+                    return;
                }
                case(0b11110000):
                {
@@ -672,7 +712,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     uint8_t value = read_byte(mem, (uint16_t) (0xFF00 | low_address));
 
                     CPU_State->A = value;
-                    break;
+                    return;
 
                }
                case(0b11111010): // ld a, [imm16]
@@ -682,7 +722,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     uint8_t value = read_byte(mem, (uint16_t) (MSB << 8) | LSB);
 
                     CPU_State->A = value;
-                    break;
+                    return;
                }
                case(0b11101000): // get cycles right here
                {
@@ -697,7 +737,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     read_byte(mem, 0); // take extra cycles
                     read_byte(mem, 0);
-                    break;
+                    return;
 
                }
                case(0b11111000): // get cycles right here as well
@@ -712,33 +752,34 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     CPU_State->HL = SP + addVal;
 
                     read_byte(mem, 0); // take extra cycle
-                    break;
+                    return;
                }
                case(0b11111001):
                {
                     CPU_State->SP = CPU_State->HL;
 
                     read_byte(mem, 0); // take extra cycle
-                    break;
+                    return;
                }
                case(0b11110011):
                {
-                    CPU_State->IME = 0;
-                    break;
+                    mem->IME = 0;
+                    mem->IME_next = 0;
+                    return;
                }
                case(0b11111011):
                {
-                    CPU_State->IME_next = 1;
-                    break;
+                    mem->IME_next = 1;
+                    return;
                }
                case(0b11001011): // CB Prefix
                {
                     uint8_t next_opcode = fetch_byte(mem, CPU_State);
+                    uint8_t cbBlock = block_finder(next_opcode);
+                    uint8_t identifier = next_opcode & 0b00000111;
+                    uint8_t bit_index = (next_opcode & 0b00111000) >> 3;
 
-                    switch(next_opcode){
-                        uint8_t cbBlock = block_finder(next_opcode);
-                        uint8_t identifier = next_opcode & 0b00000111;
-                        uint8_t bit_index = (next_opcode & 0b00111000) >> 3;
+                    switch(cbBlock){
 
                         case(0):
                         {
@@ -861,7 +902,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                             CPU_State->F &= 0b10110000;
                             CPU_State->F |= 0x20;
-                            break;
+                            return;
                         }
                         case(2):
                         {
@@ -962,8 +1003,9 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                         uint8_t identifier = (opcode & 0b00110000) >> 4;
                         uint16_t _register = get_16bitstk(CPU_State, identifier);
 
-                        write_byte(mem, --CPU_State->SP, _register & 0xFF);
                         write_byte(mem, --CPU_State->SP, (_register >> 8) & 0xFF);
+                        write_byte(mem, --CPU_State->SP, _register & 0xFF);
+
 
                         read_byte(mem, 0);
                         return;
@@ -973,8 +1015,6 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
         }
     }
 
-    // forbidden opcodes
-    if(opcode == 0xD3 || opcode == 0xDB || opcode == 0xDD || opcode == 0xE3 || opcode == 0xE4 || opcode == 0xEB || opcode == 0xEC || opcode == 0xED || opcode == 0xF4 || opcode == 0xFC || opcode == 0xFD)
-        CPU_State->state = 'l'; // locked
+
 
 }

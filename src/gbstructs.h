@@ -8,9 +8,6 @@ typedef struct SharpState {
     uint8_t A; // accumulator reguster
     uint8_t F; // flag register
 
-    uint8_t IME; // interrupt master enable.,. this is also a flag
-    uint8_t IME_next; // if this is 1 then IME is set to 1 in the following machine cycle
-
     uint16_t BC;
     uint16_t DE;
     uint16_t HL;
@@ -41,7 +38,7 @@ typedef struct GBMemory {
     uint8_t HRAM[0x7F];
 
 
-    uint8_t IORegisters[0xFFFF - 0xFF80];
+    uint8_t IORegisters[0x80];
     uint16_t DIV; // we dont actually use IORegisters[0x04] bc that's actuallly a 16 bit value
 
     // in this array the i/o registers lie.... they can be accessed by indexing like
@@ -50,6 +47,7 @@ typedef struct GBMemory {
 
     uint8_t interrupt_enable; // 0xFFFF in memory.
     uint8_t IME;
+    uint8_t IME_next;
     //etc... prolly bank switching stuff goes here later
 
     unsigned int sys_clock; // this isn't in the gameboy's memory map but i'm putting it here to serve as a system clock for rn..
@@ -58,6 +56,8 @@ typedef struct GBMemory {
     unsigned int TIMA_overflowing; // if TIMA overflows then update its value one cycle later so we need this variabel to keep track of that state
     unsigned int TIMA_reloading;
 
+    //debugging stuff
+    SharpState_t *CPU; // cuz im lazy and a mid dev (will do better in future)
 } GBMemory_t;
 
 
@@ -68,12 +68,10 @@ typedef struct Emulator { /// define ona these in the program entry point...
 
 } Emulator_t;
 
-// put this somwhere else gng
-uint8_t* ProcessROM(FILE *ROM, size_t ROMSIZE);
-
 // initialize global sharpstate and gbmem variables (implement later icl...)
 extern const uint8_t gb_daa_table[256 * 8 * 2];
 
 //global variables
 extern SharpState_t CPU_State; // reflects state of cpu regs, state, and interrupts
 extern GBMemory_t GBMem; // reflects state of gameboy memory
+extern Cartridge_t cart;

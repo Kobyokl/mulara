@@ -1,6 +1,6 @@
 #include "bus.h"
+#include "gbstructs.h"
 #include "timers.h"
-
 
 
 void tick(GBMemory_t *mem){
@@ -64,6 +64,7 @@ uint8_t read_byte(GBMemory_t *mem, uint16_t addr){
     // increment the system clock and update other peripherals
 }
 
+
 void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
     if(addr < 0x8000){
         ; //ROM
@@ -75,6 +76,24 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
         mem->ExRAM[addr - 0xA000] = value;
     }else if(addr < 0xE000){
         //WRAM
+        if(addr >= 0xC752 && addr <= 0xC756){
+            printf(
+                "\nWATCHPOINT: PC=%04X wrote %02X to %04X\n",
+                mem->CPU->PC,
+                value,
+                addr
+            );
+
+            printf(
+                "AF:%02X%02X BC:%04X DE:%04X HL:%04X SP:%04X\n",
+                mem->CPU->A,
+                mem->CPU->F,
+                mem->CPU->BC,
+                mem->CPU->DE,
+                mem->CPU->HL,
+                mem->CPU->SP
+            );
+        }
         mem->WRAM[addr - 0xC000] = value;
     }else if(addr < 0xFE00){
         //Mirror of WRAM
@@ -85,6 +104,15 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
     }else if(addr < 0xFF00){
         ; //Forbidden memory
     }else if(addr < 0xFF80){
+        if(addr == 0xFF01){
+            printf("\nWRITE FF01: %02X '%c'\n", value, value);
+        }
+
+        if(addr == 0xFF02){
+            printf("\nWRITE FF02: %02X\n", value);
+        }
+
+
         if(addr == 0xFF04){
             mem->DIV = 0;
         }else if(addr == 0xFF05 && mem->TIMA_overflowing){
@@ -99,6 +127,7 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
         mem->HRAM[addr - 0xFF80] = value;
     }else{
         mem->interrupt_enable = value;
+        printf("IO WRITE: FFFF = %02X\n", value);
     }
 
     tick(mem);

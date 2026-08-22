@@ -102,8 +102,17 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
     // forbidden opcodes
     if(opcode == 0xD3 || opcode == 0xDB || opcode == 0xDD || opcode == 0xE3 || opcode == 0xE4 || opcode == 0xEB || opcode == 0xEC || opcode == 0xED || opcode == 0xF4 || opcode == 0xFC || opcode == 0xFD){
         CPU_State->state = 'l'; // locked
+
+        printf(
+            "\nLOCKED: forbidden opcode %02X encountered at PC %04X\n",
+            opcode,
+            CPU_State->PC - 1
+        );
+
         return;
     }
+
+
     CPU_State->F &= 0xF0;
 
     switch(opcode){
@@ -162,9 +171,12 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
         }
         case(0b00011111): // rra
         {
-            uint8_t carry = (CPU_State->A & 0x01);
-            CPU_State->A = (CPU_State->A >> 1) | ((CPU_State->F & 0x80)); // just like 0x07 but bit zero is dependent on the carry flag BEFORE the flag is modified...
-            CPU_State->F = carry << 4; // only carry flag
+            uint8_t old_carry = (CPU_State->F & 0x10) >> 4;
+            uint8_t new_carry = CPU_State->A & 0x01;
+
+            CPU_State->A = (CPU_State->A >> 1) | (old_carry << 7); // just like 0x07 but bit zero is dependent on the carry flag BEFOREEEE** the flag is modified which is why we have to store the old cary
+            CPU_State->F = new_carry << 4; // only carry flag
+
             return;
         }
         case(0b00100111): // daa
@@ -260,40 +272,17 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     uint8_t condition = (opcode & 0b00011000) >> 3;
                     int8_t offset = (int8_t) fetch_byte(mem, CPU_State);
-                    
+
                     if(get_condition(CPU_State, condition)){
                         CPU_State->PC += offset;
                         read_byte(mem, 0);
                     }
                     return;
                 }
+
             }
             switch(opcode & 0x0F){
-                case(1): // ld r16, imm16
-                {
-                    uint8_t valueLSB = fetch_byte(mem, CPU_State);
-                    uint8_t valueMSB = fetch_byte(mem, CPU_State);
-                    uint8_t identifier = (opcode & 0b00110000) >> 4;
 
-                    set_16bit_reg(CPU_State, (valueMSB << 8) | valueLSB, identifier);
-                    return;
-                }
-                case(2): // ld [r16mem], a
-                {
-                    uint8_t identifier = (opcode & 0b00110000) >> 4;
-
-                    if(identifier == 2){
-                        write_byte(mem, CPU_State->HL, CPU_State->A);
-                        CPU_State->HL++;
-                        return;
-                    }else if(identifier == 3){
-                        write_byte(mem, CPU_State->HL, CPU_State->A);
-                        CPU_State->HL--;
-                        return;
-                    }
-                    write_byte(mem, get_16bit_reg(CPU_State, identifier), CPU_State->A);
-                    return;
-                }
                 case(10): // ld a, [r16mem]
                 {
                     uint8_t identifier = (opcode & 0b00110000) >> 4;
@@ -313,16 +302,30 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     return;
                 }
-                case(8): // ld [imm16], sp
+                case(2): // ld [r16mem], a
                 {
-                    uint8_t addrLSB = fetch_byte(mem, CPU_State);
-                    uint8_t addrMSB = fetch_byte(mem, CPU_State);
+                    uint8_t identifier = (opcode & 0b00110000) >> 4;
 
-                    uint16_t addr = (addrMSB << 8) | addrLSB;
+                    if(identifier == 2){
+                        write_byte(mem, CPU_State->HL, CPU_State->A);
+                        CPU_State->HL++;
+                        return;
+                    }else if(identifier == 3){
+                        write_byte(mem, CPU_State->HL, CPU_State->A);
+                        CPU_State->HL--;
+                        return;
+                    }
+                    write_byte(mem, get_16bit_reg(CPU_State, identifier), CPU_State->A);
+                    return;
+                }
+                case(1): // ld r16, imm16
+                {
+                    uint8_t valueLSB = fetch_byte(mem, CPU_State);
+                    uint8_t valueMSB = fetch_byte(mem, CPU_State);
 
-                    write_byte(mem, addr, CPU_State->SP & 0xFF);
-                    write_byte(mem, addr + 1, (CPU_State->SP >> 8));
+                    uint8_t identifier = (opcode & 0b00110000) >> 4;
 
+                    set_16bit_reg(CPU_State, (valueMSB << 8) | valueLSB, identifier);
                     return;
                 }
                 case(3): // inc r16
@@ -333,6 +336,18 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     set_16bit_reg(CPU_State, reg + 1, identifier);
 
                     read_byte(mem, 0); // takes an extra m-cycles
+
+                    return;
+                }
+                case(8): // ld [imm16], sp
+                {
+                    uint8_t addrLSB = fetch_byte(mem, CPU_State);
+                    uint8_t addrMSB = fetch_byte(mem, CPU_State);
+
+                    uint16_t addr = (addrMSB << 8) | addrLSB;
+
+                    write_byte(mem, addr, CPU_State->SP & 0xFF);
+                    write_byte(mem, addr + 1, (CPU_State->SP >> 8));
 
                     return;
                 }
@@ -835,16 +850,29 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                                 }
                                 case(3):
                                 {
-                                    CPU_State->F &= 0;
+                                    uint8_t old_carry =
+                                        (CPU_State->F & 0x10) >> 4;
 
-                                    uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
-                                    uint8_t carry_bit = (CPU_State->F & 0x10) << 3;
+                                    uint8_t reg =
+                                        get_8bit_reg(mem, CPU_State, identifier);
 
-                                    uint8_t updated_register = set_8bit_reg(mem, CPU_State, (_register << 1) | carry_bit , identifier);
+                                    uint8_t result =
+                                        (reg >> 1) | (old_carry << 7);
 
+                                    CPU_State->F = 0;
 
-                                    if(!updated_register) CPU_State->F |= 0x80; // if its zero
-                                    if(_register & 0b00000001) CPU_State->F |= 0x10;
+                                    if(result == 0)
+                                        CPU_State->F |= 0x80;
+
+                                    if(reg & 0x01)
+                                        CPU_State->F |= 0x10;
+
+                                    set_8bit_reg(
+                                        mem,
+                                        CPU_State,
+                                        result,
+                                        identifier
+                                    );
 
                                     return;
                                 }
@@ -924,97 +952,95 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                         }
                     }
                }
-               switch(opcode & 0b00000111){
-                    case(0):
-                    {
-                        uint8_t condition = get_condition(CPU_State, (opcode & 0b00011000) >> 3);
-                        uint8_t spLSB, spMSB;
-                        if(condition){
-                            spLSB = read_byte(mem, CPU_State->SP++); // reads whatever value's at the stack pointer the increments the stack pointer
-                            spMSB = read_byte(mem, CPU_State->SP++);
-                            CPU_State->PC = (spMSB << 8) | spLSB;
-
-                            read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
-                            read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
-                        }
+            }
+            switch(opcode & 0b00000111){
+                case(0):
+                {
+                    uint8_t condition = get_condition(CPU_State, (opcode & 0b00011000) >> 3);
+                    uint8_t spLSB, spMSB;
+                    if(condition){
+                        spLSB = read_byte(mem, CPU_State->SP++); // reads whatever value's at the stack pointer the increments the stack pointer
+                        spMSB = read_byte(mem, CPU_State->SP++);
+                        CPU_State->PC = (spMSB << 8) | spLSB;
 
                         read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
-                        return;
+                        read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
                     }
-                    case(2):
-                    {
-                        uint8_t condition = get_condition(CPU_State, (opcode & 0b00011000) >> 3);
-                        uint8_t LSB = fetch_byte(mem, CPU_State);;
-                        uint8_t MSB = fetch_byte(mem, CPU_State);;
 
-                        if(condition)
-                            CPU_State->PC = (MSB << 8) | LSB;
-                            read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
+                    read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
+                    return;
+                }
+                case(2):
+                {
+                    uint8_t condition = get_condition(CPU_State, (opcode & 0b00011000) >> 3);
+                    uint8_t LSB = fetch_byte(mem, CPU_State);;
+                    uint8_t MSB = fetch_byte(mem, CPU_State);;
 
-                        return;
+                    if(condition){
+                        CPU_State->PC = (MSB << 8) | LSB;
+                        read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
                     }
-                    case(4):
-                    {
-                        uint8_t condition = get_condition(CPU_State, (opcode & 0b00011000) >> 3);
-                        uint8_t LSB = fetch_byte(mem, CPU_State); // M2
-                        uint8_t MSB = fetch_byte(mem, CPU_State); // M3
 
-                        uint16_t addr = (MSB << 8) | LSB;
+                    return;
+                }
+                case(4):
+                {
+                    uint8_t condition = get_condition(CPU_State, (opcode & 0b00011000) >> 3);
+                    uint8_t LSB = fetch_byte(mem, CPU_State); // M2
+                    uint8_t MSB = fetch_byte(mem, CPU_State); // M3
 
-                        read_byte(mem, 0);
+                    uint16_t addr = (MSB << 8) | LSB;
 
-                        if(condition){
-                            write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
-                            write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF);
+                    read_byte(mem, 0);
 
-                            read_byte(mem ,0);
-
-                            CPU_State->PC = addr;
-                        }
-
-                        return;
-                    }
-                    case(7):
-                    {
-                        uint16_t addr = (opcode & 0b00111000); // ight shift by 3 then left shift by 3 cuz have to multiply by 8
-
-
-                        write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
+                    if(condition){
                         write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF);
+                        write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
 
-                        read_byte(mem, 0);
+
+                        read_byte(mem ,0);
 
                         CPU_State->PC = addr;
-                        return;
                     }
-                    case(1):
-                    {
-                        uint8_t identifier = (opcode & 0b00110000) >> 4;
 
-                        uint8_t lsb = read_byte(mem, CPU_State->SP++);
-                        uint8_t msb = read_byte(mem, CPU_State->SP++);
-                        uint16_t value = (uint16_t) (msb << 8) | lsb;
+                    return;
+                }
+                case(7):
+                {
+                    uint16_t addr = (opcode & 0b00111000); // ight shift by 3 then left shift by 3 cuz have to multiply by 8
 
-                        set_16bitstk(CPU_State, identifier, value);
-                        return;
-                    }
-                    case(5):
-                    {
-                        uint8_t identifier = (opcode & 0b00110000) >> 4;
-                        uint16_t _register = get_16bitstk(CPU_State, identifier);
+                    write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF);
+                    write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
 
-                        write_byte(mem, --CPU_State->SP, (_register >> 8) & 0xFF);
-                        write_byte(mem, --CPU_State->SP, _register & 0xFF);
+                    read_byte(mem, 0);
+
+                    CPU_State->PC = addr;
+                    return;
+                }
+                case(1):
+                {
+                    uint8_t identifier = (opcode & 0b00110000) >> 4;
+
+                    uint8_t lsb = read_byte(mem, CPU_State->SP++);
+                    uint8_t msb = read_byte(mem, CPU_State->SP++);
+                    uint16_t value = (((uint16_t) msb) << 8 )| lsb;
+
+                    set_16bitstk(CPU_State, identifier, value);
+                    return;
+                }
+                case(5):
+                {
+                    uint8_t identifier = (opcode & 0b00110000) >> 4;
+                    uint16_t _register = get_16bitstk(CPU_State, identifier);
+
+                    write_byte(mem, --CPU_State->SP, (_register >> 8) & 0xFF);
+                    write_byte(mem, --CPU_State->SP, _register & 0xFF);
 
 
-                        read_byte(mem, 0);
-                        return;
-                    }
-               }
+                    read_byte(mem, 0);
+                    return;
+                }
             }
         }
     }
-
-
-
 }

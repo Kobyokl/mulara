@@ -58,6 +58,8 @@ typedef struct GBMemory {
 
     //debugging stuff
     SharpState_t *CPU; // cuz im lazy and a mid dev (will do better in future)
+    char serial_output[200];
+    int buffer_pointer; 
 } GBMemory_t;
 
 

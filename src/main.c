@@ -35,6 +35,7 @@ Cartridge_t cart = {0};
 int main(int argc, char *argv[]){
     size_t ROMSIZE;
     int step_limit = 100000;
+    int close_watcher = 0;
     FILE *RAW_ROM = fopen(argv[1], "rb"); // rb is for read binary btw..
 
     if(RAW_ROM == NULL){
@@ -112,8 +113,10 @@ int main(int argc, char *argv[]){
     main_emu.mem.TIMA_overflowing = 0;
     main_emu.mem.TIMA_reloading = 0;
 
+    main_emu.mem.buffer_pointer = 0;
+
+
     int running = 1;
-    int count = 0;
 
     while(running && (main_emu.CPU.state != 'l')){
         uint8_t IE = main_emu.mem.interrupt_enable & 0x1F;
@@ -144,65 +147,34 @@ int main(int argc, char *argv[]){
             process_interrupt(&main_emu.CPU, &main_emu.mem);
 
         }else{
-            // now we're going to look at the actual isnrtcutions about to be exected before we execute them to see what instructions we're getting stuck on..
 
-            // if(main_emu.CPU.PC >= 0xC000 && main_emu.CPU.PC < 0xD000){
 
-            //     uint16_t WRAM_index = main_emu.CPU.PC - 0xC000;
-            //     uint16_t ROM_index = 0x4000 + WRAM_index;
-
-            //     printf(
-            //         "PC:%04X  WRAM[%04X]:%02X  ROM[%04X]:%02X\n",
-            //         main_emu.CPU.PC,
-            //         WRAM_index,
-            //         main_emu.mem.WRAM[WRAM_index],
-            //         ROM_index,
-            //         main_emu.mem.ROM[ROM_index]
-            //     );
-
-            //     printf("Next bytes: ");
-
-            //     for(int i = 0; i < 6; i++){
-            //         printf("%02X ", main_emu.mem.WRAM[WRAM_index + i]);
-            //     }
-
-            //     printf("\n");
-
-            //     printf(
-            //         "AF:%02X%02X BC:%04X DE:%04X HL:%04X SP:%04X\n\n",
-            //         main_emu.CPU.A,
-            //         main_emu.CPU.F,
-            //         main_emu.CPU.BC,
-            //         main_emu.CPU.DE,
-            //         main_emu.CPU.HL,
-            //         main_emu.CPU.SP
-            //     );
-            // }
+            uint16_t old_PC = main_emu.CPU.PC;
 
             handle_instruction(&main_emu.CPU, &main_emu.mem);
 
-            if(enable_IME && main_emu.mem.IME_next){
+            if(old_PC == main_emu.CPU.PC){
+                running = 0;
+            }
+
+            if(enable_IME && main_emu.mem.IME_next){ // properly handling IME setting
                 main_emu.mem.IME = 1;
                 main_emu.mem.IME_next = 0;
             }
+
         }
 
     }
 
-    // while(running && (main_emu.CPU.state != 'l')){
+    printf("\nEMULATOR STOPPED\n");
+    printf("CPU state: %c\n", main_emu.CPU.state);
+    printf("PC: %04X\n", main_emu.CPU.PC);
+    printf("AF: %02X%02X\n", main_emu.CPU.A, main_emu.CPU.F);
+    printf("BC: %04X\n", main_emu.CPU.BC);
+    printf("DE: %04X\n", main_emu.CPU.DE);
+    printf("HL: %04X\n", main_emu.CPU.HL);
+    printf("SP: %04X\n", main_emu.CPU.SP);
 
-    //     if(main_emu.mem.IME){
-    //         uint8_t IE = main_emu.mem.interrupt_enable & 0x1F;
-    //         uint8_t IF = main_emu.mem.IORegisters[0x0F] & 0x1F;
 
-    //         if(IE & IF){ // check if there are any interrupts that need to be serviced before processing next instruction
-    //             process_interrupt(&main_emu.CPU, &main_emu.mem);
-    //         }else{
-    //             handle_instruction(&main_emu.CPU, &main_emu.mem);
-    //         }
-    //     }else{
-    //         handle_instruction(&main_emu.CPU, &main_emu.mem);
-    //     }
-    // }
-
+    printf("__________________SERIAL OUTPUT__________________ \n \n %s \n \n ", main_emu.mem.serial_output);
 }

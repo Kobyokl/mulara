@@ -117,9 +117,21 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
         case(0): return; // NOP
         case(16): // stop (2 bytes)
         {
-            CPU_State->state = 's';
-            mem->DIV = 0;
             fetch_byte(mem, CPU_State);
+
+            mem->DIV = 0;
+
+            if(mem->IORegisters[0x4D] & 1){
+                // we dont enter stop mode in thsi case
+                mem->IORegisters[0x4D] ^= 0b10000001; // flip the last bit and clear bit 0 automatically this is KEY1 for speedswitchign
+                CPU_State->state = 'w';
+                CPU_State->wm_cycle = mem->sys_clock; // record when we enter the weird state
+            }else{
+                // actually stop
+                CPU_State->state = 's';
+            }
+
+
             return;
         }
         case(0b01110110): // halt
@@ -131,7 +143,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
         {
             //JR n16 takes 3 m-cycles
             CPU_State->PC += (int8_t) fetch_byte(mem, CPU_State);
-            read_byte(mem, 0);
+            tick(mem);
             return;
         }
         /*
@@ -273,7 +285,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     if(get_condition(CPU_State, condition)){
                         CPU_State->PC += offset;
-                        read_byte(mem, 0);
+                        tick(mem);
                     }
                     return;
                 }
@@ -333,7 +345,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     uint16_t reg = get_16bit_reg(CPU_State, identifier);
                     set_16bit_reg(CPU_State, reg + 1, identifier);
 
-                    read_byte(mem, 0); // takes an extra m-cycles
+                    tick(mem); // takes an extra m-cycles
 
                     return;
                 }
@@ -356,7 +368,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     uint16_t reg = get_16bit_reg(CPU_State, identifier);
                     set_16bit_reg(CPU_State, reg - 1, identifier);
 
-                    read_byte(mem, 0); // takes an extra m-cycles
+                    tick(mem); // takes an extra m-cycles
 
                     return;
                 }
@@ -377,8 +389,8 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     if((uint32_t)old + value > 0xFFFF)
                         CPU_State->F |= 0x10;
 
-                    read_byte(mem, 0);
-                    
+                    tick(mem);
+
                     return;
 
                 }
@@ -644,7 +656,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     CPU_State->PC = (spMSB << 8) | spLSB;
 
-                    read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
+                    tick(mem); // take an extra cycle cuz the instruction takes 4 m-cycles
                     return;
                }
                case(0b11011001):
@@ -655,7 +667,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     CPU_State->PC = (spMSB << 8) | spLSB;
                     mem->IME = 1;
 
-                    read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
+                    tick(mem); // take an extra cycle cuz the instruction takes 4 m-cycles
                     return;
                }
                case(0b11000011): /// jp imm16
@@ -665,7 +677,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     CPU_State->PC = (MSB << 8) | LSB;
 
-                    read_byte(mem, 0); // take an extra cycle cuz the instruction takes 4 m-cycles
+                    tick(mem); // take an extra cycle cuz the instruction takes 4 m-cycles
                     return;
                }
                case(0b11101001): // jp hl
@@ -679,7 +691,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     uint8_t MSB = fetch_byte(mem, CPU_State); // M3
                     uint16_t addr = (MSB << 8) | LSB;
 
-                    read_byte(mem, 0);
+                    tick(mem);
 
 
                     write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF); // make sure you write the high byte first
@@ -750,8 +762,8 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     if (((SP & 0xF) + ((uint16_t)addVal & 0xF)) > 0xF) CPU_State->F |= 0x20; // H
                     if (((SP & 0xFF) + ((uint16_t)addVal & 0xFF)) > 0xFF) CPU_State->F |= 0x10; // C
 
-                    read_byte(mem, 0); // take extra cycles
-                    read_byte(mem, 0);
+                    tick(mem); // take extra cycles
+                    tick(mem);
                     return;
 
                }
@@ -766,14 +778,14 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     CPU_State->HL = SP + addVal;
 
-                    read_byte(mem, 0); // take extra cycle
+                    tick(mem); // take extra cycle
                     return;
                }
                case(0b11111001):
                {
                     CPU_State->SP = CPU_State->HL;
 
-                    read_byte(mem, 0); // take extra cycle
+                    tick(mem); // take extra cycle
                     return;
                }
                case(0b11110011):
@@ -973,11 +985,10 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                         spMSB = read_byte(mem, CPU_State->SP++);
                         CPU_State->PC = (spMSB << 8) | spLSB;
 
-                        read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
-                        read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
+                        tick(mem); // take an extra cycle cuz the instruction takes extra m-cycle
                     }
 
-                    read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
+                    tick(mem); // take an extra cycle cuz the instruction takes extra m-cycle
                     return;
                 }
                 case(2):
@@ -988,7 +999,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     if(condition){
                         CPU_State->PC = (MSB << 8) | LSB;
-                        read_byte(mem, 0); // take an extra cycle cuz the instruction takes extra m-cycle
+                        tick(mem); // take an extra cycle cuz the instruction takes extra m-cycle
                     }
 
                     return;
@@ -1001,7 +1012,6 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
 
                     uint16_t addr = (MSB << 8) | LSB;
 
-                    read_byte(mem, 0);
 
                     if(condition){
                         write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF);
@@ -1022,7 +1032,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     write_byte(mem, --CPU_State->SP, (CPU_State->PC >> 8) & 0xFF);
                     write_byte(mem, --CPU_State->SP, CPU_State->PC & 0xFF);
 
-                    read_byte(mem, 0);
+                    tick(mem);
 
                     CPU_State->PC = addr;
                     return;
@@ -1047,7 +1057,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                     write_byte(mem, --CPU_State->SP, _register & 0xFF);
 
 
-                    read_byte(mem, 0);
+                    tick(mem);
                     return;
                 }
             }

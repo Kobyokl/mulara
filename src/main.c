@@ -153,6 +153,7 @@ int main(int argc, char *argv[]){
 
             handle_instruction(&main_emu.CPU, &main_emu.mem);
 
+
             if(old_PC == main_emu.CPU.PC){
                 running = 0;
             }

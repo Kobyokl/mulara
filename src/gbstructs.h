@@ -15,7 +15,8 @@ typedef struct SharpState {
     uint16_t SP; // stack pointer
     uint16_t PC; // program counter indexes to a byte in the array of uint8_t instructions
 
-    char state; // can be h, s, l, or n (halt, stopped, locked, or normal)
+    char state; // can be h, s, l, w, or n (halt, stopped, locked, weird [for speed swiching], or normal)
+    unsigned int wm_cycle; // records the m-cycle that the gameboy had entered the weird state that occurs on a speed switch... this weird state is switch out of after 2050 M-cycles
 
 
 } SharpState_t;
@@ -59,7 +60,7 @@ typedef struct GBMemory {
     //debugging stuff
     SharpState_t *CPU; // cuz im lazy and a mid dev (will do better in future)
     char serial_output[200];
-    int buffer_pointer; 
+    int buffer_pointer;
 } GBMemory_t;
 
 

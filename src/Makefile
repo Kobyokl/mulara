@@ -1,7 +1,11 @@
 source_files := main.c cpu_core.c daa_table.c bus.c interrupt.c timers.c
 
 
-
+test_timing:
+	mkdir -p build
+	gcc $(source_files) -o build/main
+	build/main roms/blargg/instr_timing.gb
+	build/main roms/blargg/interrupt_time.gb
 
 instruction_tests:
 	mkdir -p build

@@ -6,6 +6,13 @@
 void tick(GBMemory_t *mem){
     mem->sys_clock++; // increment our system clock (1 m-cycle)
 
+    if(mem->CPU->state == 'w'){
+        if(mem->sys_clock - mem->CPU->wm_cycle >= 2050){
+            mem->CPU->state = 'n';
+        }
+        return;
+    }
+
     timer_update(mem);
     // ppu_update()
     // apu_update()
@@ -66,6 +73,11 @@ uint8_t read_byte(GBMemory_t *mem, uint16_t addr){
 
 
 void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
+
+    tick(mem);
+
+
+
     if(addr < 0x8000){
         ; //ROM
     }else if(addr < 0xA000){
@@ -95,6 +107,7 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
             mem->DIV = 0;
         }else if(addr == 0xFF05 && mem->TIMA_overflowing){
             mem->TIMA_overflowing = 0; // cancel the interrupt and the writing to TIMA with TMA...
+            mem->IORegisters[0x05] = value;
         }else if(addr == 0xFF05 && mem->TIMA_reloading){
             ; // ignore the write ! the value in TMA is going to be written to TIMA not whatever we passed in this function
         }else{
@@ -107,7 +120,6 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
         mem->interrupt_enable = value;
     }
 
-    tick(mem);
 
     return;
 }

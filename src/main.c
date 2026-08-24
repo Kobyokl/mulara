@@ -166,15 +166,15 @@ int main(int argc, char *argv[]){
 
     }
 
-    printf("\nEMULATOR STOPPED\n");
-    printf("CPU state: %c\n", main_emu.CPU.state);
-    printf("PC: %04X\n", main_emu.CPU.PC);
-    printf("AF: %02X%02X\n", main_emu.CPU.A, main_emu.CPU.F);
-    printf("BC: %04X\n", main_emu.CPU.BC);
-    printf("DE: %04X\n", main_emu.CPU.DE);
-    printf("HL: %04X\n", main_emu.CPU.HL);
-    printf("SP: %04X\n", main_emu.CPU.SP);
+    // printf("\n\n\n\nEMULATOR STOPPED\n");
+    // printf("CPU state: %c\n", main_emu.CPU.state);
+    // printf("PC: %04X\n", main_emu.CPU.PC);
+    // printf("AF: %02X%02X\n", main_emu.CPU.A, main_emu.CPU.F);
+    // printf("BC: %04X\n", main_emu.CPU.BC);
+    // printf("DE: %04X\n", main_emu.CPU.DE);
+    // printf("HL: %04X\n", main_emu.CPU.HL);
+    // printf("SP: %04X\n", main_emu.CPU.SP);
 
 
-    printf("__________________SERIAL OUTPUT__________________ \n \n %s \n \n ", main_emu.mem.serial_output);
+    printf("\n__________________SERIAL OUTPUT__________________ \n \n %s \n \n ", main_emu.mem.serial_output);
 }

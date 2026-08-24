@@ -76,24 +76,6 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
         mem->ExRAM[addr - 0xA000] = value;
     }else if(addr < 0xE000){
         //WRAM
-        if(addr >= 0xC752 && addr <= 0xC756){
-            // printf(
-            //     "\nWATCHPOINT: PC=%04X wrote %02X to %04X\n",
-            //     mem->CPU->PC,
-            //     value,
-            //     addr
-            // );
-
-            // printf(
-            //     "AF:%02X%02X BC:%04X DE:%04X HL:%04X SP:%04X\n",
-            //     mem->CPU->A,
-            //     mem->CPU->F,
-            //     mem->CPU->BC,
-            //     mem->CPU->DE,
-            //     mem->CPU->HL,
-            //     mem->CPU->SP
-            // );
-        }
         mem->WRAM[addr - 0xC000] = value;
     }else if(addr < 0xFE00){
         //Mirror of WRAM
@@ -123,7 +105,6 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
         mem->HRAM[addr - 0xFF80] = value;
     }else{
         mem->interrupt_enable = value;
-        printf("IO WRITE: FFFF = %02X\n", value);
     }
 
     tick(mem);

@@ -1,7 +1,5 @@
 #include "cpu_core.h"
-
-extern const uint8_t gb_daa_table[256 * 8 * 2]; // In file daa_table.c
-
+#include "gbstructs.h"
 /*
     to be clear none of these functions take any machine cycles... only the ones in bus.h do
 */
@@ -49,7 +47,7 @@ uint8_t set_8bit_reg(GBMemory_t *mem, SharpState_t *CPU, uint8_t value, uint8_t 
         case(3): CPU->DE = (CPU->DE & 0xFF00) | value; return CPU->DE & 0x00FF; // e
         case(4): CPU->HL = (CPU->HL & 0x00FF) | (value << 8); return CPU->HL >> 8; // h
         case(5): CPU->HL = (CPU->HL & 0xFF00) | value; return CPU->HL & 0x00FF; // l
-        case(6): write_byte(mem, CPU->HL, value); return 0; // [hl] (uses an m-cycle) returns zero by defualt so we have to handle some instructions here seperately
+        case(6): write_byte(mem, CPU->HL, value); return value; // [hl] (uses an m-cycle) returns zero by defualt so we have to handle some instructions here seperately
         case(7): CPU->A = value; return CPU->A;// a
     }
     return 0;
@@ -120,7 +118,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
         case(16): // stop (2 bytes)
         {
             CPU_State->state = 's';
-            mem->IORegisters[0x04] = 0;
+            mem->DIV = 0;
             fetch_byte(mem, CPU_State);
             return;
         }
@@ -366,21 +364,23 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                 {
 
                     uint8_t identifier = (opcode & 0b00110000) >> 4;
+
                     uint16_t old = CPU_State->HL;
                     uint16_t value = get_16bit_reg(CPU_State, identifier);
 
                     CPU_State->HL += value;
-                    CPU_State->F &= 0b10111111;
+                    CPU_State->F &= 0x80; // preserve only Z; clear N, H, C
 
-                    if ( ( (old & 0x0FFF) + (value & 0x0FFF)) > 0x0FFF)
-                        CPU_State->F |= 0x20; // half carry
-                    if ((uint32_t) old + value > 0xFFFF)
+                    if(((old & 0x0FFF) + (value & 0x0FFF)) > 0x0FFF)
+                        CPU_State->F |= 0x20;
+
+                    if((uint32_t)old + value > 0xFFFF)
                         CPU_State->F |= 0x10;
-                    CPU_State->F &= 0b10111111;
 
-                    read_byte(mem, 0); // takes an extra m-cycles
-
+                    read_byte(mem, 0);
+                    
                     return;
+
                 }
             }
         }
@@ -803,21 +803,23 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                             switch(instruction_identifier){
                                 case(0): /// rlc r8
                                 {
-                                    CPU_State->F &= 0; //unset all other flags
+                                    uint8_t reg = get_8bit_reg(mem, CPU_State, identifier);
 
-                                    uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
+                                    uint8_t result = (reg << 1) | ((reg & 0x80) >> 7);
 
-                                    if(_register & 0x80){
-                                        CPU_State->F |= 0b00010000; // set the carry flag
-                                        set_8bit_reg(mem, CPU_State, ((_register << 1) + 1), identifier);
-                                    }else{
-                                        set_8bit_reg(mem, CPU_State, _register << 1, identifier);;
-                                    }
+                                    CPU_State->F = 0;
 
-                                    if(~get_8bit_reg(mem, CPU_State, identifier)) CPU_State->F |= 0x80;
+                                    if(reg & 0x80)
+                                        CPU_State->F |= 0x10; // C
 
-                                    return; // usign returns here cuz idk if break is goonna break out of all these switch cases...
+                                    if(result == 0)
+                                        CPU_State->F |= 0x80; // Z
+
+                                    set_8bit_reg(mem, CPU_State, result, identifier);
+
+                                    return;
                                 }
+
                                 case(1):
                                 {
                                     CPU_State->F &= 0; //unset all other flags
@@ -837,10 +839,11 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                                 }
                                 case(2):
                                 {
+                                    uint8_t carry_bit = (CPU_State->F & 0x10) >> 4;
+
                                     CPU_State->F &= 0;
 
                                     uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
-                                    uint8_t carry_bit = (CPU_State->F & 0x10) >> 4;
 
                                     uint8_t updated_register = set_8bit_reg(mem, CPU_State, (_register << 1) + carry_bit , identifier);
 
@@ -890,7 +893,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                                 }
                                 case(5):
                                 {
-                                    CPU_State->F &= 0;
+                                    CPU_State->F = 0;
 
                                     uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
                                     uint8_t shift_arith = (uint8_t) (((int8_t) _register) >> 1);
@@ -902,12 +905,18 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                                 }
                                 case(6):
                                 {
-                                    CPU_State->F = 0x80;
 
                                     uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
 
                                     // swap the 2 nibbles in the register
                                     uint8_t updated_register = set_8bit_reg(mem, CPU_State, ((_register & 0b00001111) << 4) | ((_register & 0b11110000) >> 4), identifier);
+
+                                    CPU_State->F = 0;
+
+                                    if(!updated_register){ // take the 4th m-cycle for HL version of instruction
+                                        CPU_State->F |= 0x80;
+                                    }
+
                                     return;
                                 }
                                 case(7):
@@ -916,8 +925,9 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                                     uint8_t shift_arith = _register >> 1;
                                     uint8_t updated_register = set_8bit_reg(mem, CPU_State, shift_arith , identifier);
 
+                                    CPU_State->F = 0;
                                     if(!updated_register) CPU_State->F |= 0x80; // if its zero
-                                    if(_register & 0b10000000) CPU_State->F |= 0x10; // carry bit
+                                    if(_register & 1) CPU_State->F |= 0x10; // carry bit
                                     return;
                                 }
                             }
@@ -926,10 +936,10 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                         {
                             uint8_t _register = get_8bit_reg(mem, CPU_State, identifier);
 
-                            if(!(_register >> bit_index) & 1) CPU_State->F |= 0x80;
+                            if(!((_register >> bit_index) & 1)){ CPU_State->F |= 0x80;}else{CPU_State->F &= 0x7F;}
 
                             CPU_State->F &= 0b10110000;
-                            CPU_State->F |= 0x20;
+                            CPU_State->F |= 0x20; // half carry flag is set
                             return;
                         }
                         case(2):

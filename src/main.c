@@ -77,7 +77,7 @@ int main(int argc, char *argv[]){
     /*
         DMG CPU state after bootrom
     */
-    main_emu.CPU.A = 0x01;
+    main_emu.CPU.A = 0x11;
     main_emu.CPU.F = 0xB0;
 
     main_emu.CPU.BC = 0x0013;
@@ -137,6 +137,9 @@ int main(int argc, char *argv[]){
                 tick(&main_emu.mem); // just let a cycle pass and we gon service the interrupt latrrrrr
             }
 
+            continue;
+        }else if(main_emu.CPU.state == 'w'){
+            tick(&main_emu.mem);
             continue;
         }
 

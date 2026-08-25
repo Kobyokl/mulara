@@ -126,6 +126,7 @@ void handle_instruction(SharpState_t *CPU_State, GBMemory_t *mem){
                 mem->IORegisters[0x4D] ^= 0b10000001; // flip the last bit and clear bit 0 automatically this is KEY1 for speedswitchign
                 CPU_State->state = 'w';
                 CPU_State->wm_cycle = mem->sys_clock; // record when we enter the weird state
+                CPU_State->double_speed = 1; 
             }else{
                 // actually stop
                 CPU_State->state = 's';

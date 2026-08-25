@@ -1,13 +1,14 @@
 source_files := main.c cpu_core.c daa_table.c bus.c interrupt.c timers.c
 
 
-test_timing:
+tt: # tt = test timings
 	mkdir -p build
 	gcc $(source_files) -o build/main
 	build/main roms/blargg/instr_timing.gb
 	build/main roms/blargg/interrupt_time.gb
 
-instruction_tests:
+
+ti: #ti = test instructions
 	mkdir -p build
 	gcc $(source_files) -o build/main
 	build/main roms/blargg/1.gb
@@ -21,9 +22,6 @@ instruction_tests:
 	build/main roms/blargg/9.gb
 	build/main roms/blargg/10.gb
 	build/main roms/blargg/11.gb
-
-
-
 
 
 clean:

@@ -91,6 +91,6 @@ void process_interrupt(SharpState_t *CPU_State, GBMemory_t *mem){ // handles the
     }
 
     mem->IME = 0;
-    tick(mem);
+    tick(mem); // the 5th m-cycle
 
 }

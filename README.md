@@ -1,2 +1,2 @@
-# Byoboy
+# mulara...
 gb/gbc emulator written in C

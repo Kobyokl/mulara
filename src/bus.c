@@ -25,7 +25,6 @@ void tick(GBMemory_t *mem){
     }
 
     // apu_update()
-    // dma_update()
 }
 
 uint8_t read_byte(GBMemory_t *mem, uint16_t addr){

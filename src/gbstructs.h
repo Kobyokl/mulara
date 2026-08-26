@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 // a struct to keep track of cpu states
 typedef struct SharpState {

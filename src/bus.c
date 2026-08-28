@@ -92,7 +92,10 @@ uint8_t read_byte(GBMemory_t *mem, uint16_t addr){
 
 
 void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
-    
+    if(0){ // this is for teh OAM shit taht i'm gonna do
+        // only allow access to hram
+        ; 
+    }
     tick(mem);
 
     if(addr < 0x8000){

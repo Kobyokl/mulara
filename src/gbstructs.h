@@ -66,6 +66,7 @@ typedef struct GBMemory {
     unsigned int prev_and_result;
     unsigned int TIMA_overflowing; // if TIMA overflows then update its value one cycle later so we need this variabel to keep track of that state
     unsigned int TIMA_reloading;
+    unsigned int OAM_DMA; // if there's an OAM DMA active then this will be set to 1
 
     //debugging stuff
     SharpState_t *CPU; // cuz im lazy and a mid dev (will do better in future)

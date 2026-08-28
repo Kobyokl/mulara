@@ -2,7 +2,9 @@
 
 typedef struct PPU {
 
-    int fart;
+    unsigned int dot;  
+    unsigned int line_counter; 
+    unsigned int window_line_counter; 
     // idrk what to put here yet
 
 } PPU_t;

@@ -92,7 +92,7 @@ uint8_t read_byte(GBMemory_t *mem, uint16_t addr){
 
 
 void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
-
+    
     tick(mem);
 
     if(addr < 0x8000){
@@ -115,7 +115,8 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
         //Mirror of WRAM
         mem->WRAM0[addr - 0xE000] = value;
     }else if(addr < 0xFEA0){
-        //OAM
+        //OAM hold the attributes of objects / sprites
+        // can only be written to duuring hblankad vblank periods
         mem->OAM[addr - 0xFE00] = value;
     }else if(addr < 0xFF00){
         ; //Forbidden memory

@@ -70,6 +70,7 @@ void process_interrupt(SharpState_t *CPU_State, GBMemory_t *mem){ // handles the
     switch(inter){
         case VBlank:
             mem->IORegisters[0x0F] &= 0x1E;
+            mem->ppu.mode = 1; // change to vblank mode bc rendered all scan lines on cgb lcd
             CPU_State->PC = 0x40;
             break;
         case LCD:

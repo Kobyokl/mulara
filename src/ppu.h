@@ -1,13 +1,6 @@
 #include "bus.h"
 
-typedef struct PPU {
 
-    unsigned int dot;  
-    unsigned int line_counter; 
-    unsigned int window_line_counter; 
-    // idrk what to put here yet
-
-} PPU_t;
 
 typedef struct Tile {
 
@@ -42,3 +35,5 @@ typedef struct Tile {
 
 // condiders lcdc.4 and the correct tile index of the tile map 
 uint8_t bg_color_index(uint8_t bg); 
+
+void ppu_update(GBMemory_t *mem); 

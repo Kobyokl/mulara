@@ -28,6 +28,38 @@ typedef struct SharpState {
 
 } SharpState_t;
 
+
+// struct for initializing VDMA shi also includes OAM DMAs 
+typedef struct VDMA {
+    unsigned int bytes_remaining; // how many bytes we gotta copy ?
+    unsigned char active; // r we doign the  dma or naw
+
+    unsigned char hblank_mode; //  0 for GDMA and 1 for the other one
+    unsigned char oam_mode; // if there's an OAM DMA active then this will be set to 1
+    unsigned char rem_oam_dma; // how many cycles we have left for the oam dma transfer
+
+    uint16_t source; // where in memory are we going to start to copy to VRAM /
+    uint16_t dest; // where r we gonna put it
+} VDMA_t;
+
+
+// PPU Struct definition
+ 
+typedef struct PPU {
+
+    unsigned int dot;  
+    unsigned int line_counter; 
+    unsigned int window_line_counter; 
+    // idrk what to put here yet
+
+    unsigned char mode; // 0, 1, 2, or 3
+
+    unsigned char rem_dots; // dots remaining for the PPU mode we're curently rendering
+
+} PPU_t;
+
+
+
 // struct to store ROM info
 typedef struct Cartridge {
     long size;
@@ -60,13 +92,13 @@ typedef struct GBMemory {
     //etc... prolly bank switching stuff goes here later
 
     VDMA_t vdma;
+    PPU_t ppu;
 
     unsigned int sys_clock; // this isn't in the gameboy's memory map but i'm putting it here to serve as a system clock for rn..
     unsigned int and_result; // for the sake of handling obscure timer operation
     unsigned int prev_and_result;
     unsigned int TIMA_overflowing; // if TIMA overflows then update its value one cycle later so we need this variabel to keep track of that state
     unsigned int TIMA_reloading;
-    unsigned int OAM_DMA; // if there's an OAM DMA active then this will be set to 1
 
     //debugging stuff
     SharpState_t *CPU; // cuz im lazy and a mid dev (will do better in future)
@@ -81,16 +113,9 @@ typedef struct Emulator { /// define ona these in the program entry point...
     Cartridge_t cartr;
 } Emulator_t;
 
-// struct for initializing VDMA shi
-typedef struct VDMA {
-    unsigned int bytes_remaining; // how many bytes we gotta copy ?
-    char hblank_mode; //  0 for GDMA and 1 for the other one
-    char active; // r we doign the  dma or naw
-    uint16_t source; // where in memory are we going to start to copy to VRAM /
-    uint16_t dest; // where r we gonna put it
-} VDMA_t;
 
-// initialize global sharpstate and gbmem variables (implement later icl...)
+
+// initialize global sharpstate and gbmem variables
 extern const uint8_t gb_daa_table[256 * 8 * 2];
 
 //global variables

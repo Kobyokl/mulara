@@ -1,4 +1,4 @@
-source_files := main.c cpu_core.c daa_table.c bus.c interrupt.c timers.c
+source_files := main.c cpu_core.c daa_table.c bus.c interrupt.c timers.c ppu.c
 
 
 tt: # tt = test timings
@@ -26,3 +26,4 @@ ti: #ti = test instructions
 
 clean:
 	rm -rf build
+	

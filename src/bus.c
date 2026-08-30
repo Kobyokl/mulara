@@ -1,9 +1,10 @@
 #include <string.h>
+#include <stdint.h> 
 
 #include "bus.h"
 #include "gbstructs.h"
 #include "timers.h"
-
+#include "ppu.h"
 
 void tick(GBMemory_t *mem){
     mem->sys_clock++; // increment the cpu 1 m-cycle
@@ -16,33 +17,50 @@ void tick(GBMemory_t *mem){
     }
 
     dma_update(mem);
+
+    if(mem->vdma.oam_mode && mem->vdma.rem_oam_dma >= 0){
+        mem->vdma.rem_oam_dma -= mem->CPU->double_speed == 1 ? 2 : 1;
+    }
+
     timer_update(mem);
 
-    int ppu_dots = mem->CPU->double_speed == 1 ? 2 : 4; // time keeping system of the PPU
+    int ppu_dots = mem->CPU->double_speed == 1 ? 2 : 4; // handle time keeping system of the PPU and update it accordingly
 
     for(int i = 0; i < ppu_dots; i++){
-        // ppu_update(mem);
+        ppu_update(mem);
     }
 
     // apu_update()
 }
 
 uint8_t read_byte(GBMemory_t *mem, uint16_t addr){
+
     if(addr < 0x8000){
         tick(mem);
         return mem->ROM[addr];
     }else if(addr < 0xA000){
         //VRAM
         tick(mem);
+        
+        if(mem->ppu.mode == 3){
+            return 0xFF; // return garbage value bc inaccesibel to the CPU 
+        }
+
         return mem->VRAM[mem->IORegisters[0x4F] & 1][addr - 0x8000];
+
+
     }else if(addr < 0xC000){
         //ExRAM (on cartridge)
         tick(mem);
         return mem->ExRAM[addr - 0xA000];
+
+
     }else if(addr < 0xD000){
         //WRAM
         tick(mem);
         return mem->WRAM0[addr - 0xC000];
+
+
     }else if(addr < 0xE000){
         //WRAM banks
         tick(mem);
@@ -50,14 +68,23 @@ uint8_t read_byte(GBMemory_t *mem, uint16_t addr){
 
         return mem->WRAMX[bank][addr - 0xD000];
 
+
     }else if(addr < 0xFE00){
         //Echo RAM (Mirror of WRAM .... im guessing bank 0 for right now...)
         tick(mem);
         return mem->WRAM0[addr - 0xE000];
+
+
     }else if(addr < 0xFEA0){
         //OAM
         tick(mem);
+        if(mem->ppu.mode >= 2){
+            return 0xFF; // return garbage value bc inaccesibel to the CPU 
+        }
+
         return mem->OAM[addr - 0xFE00];
+
+
     }else if(addr < 0xFF00){
         //Forbidden memory (nintendo says u cant use this memory)
         tick(mem);
@@ -92,16 +119,17 @@ uint8_t read_byte(GBMemory_t *mem, uint16_t addr){
 
 
 void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
-    if(0){ // this is for teh OAM shit taht i'm gonna do
-        // only allow access to hram
-        ; 
-    }
     tick(mem);
 
     if(addr < 0x8000){
         ; //ROM
     }else if(addr < 0xA000){
         //VRAM
+
+        if(mem->ppu.mode >= 3){
+            return; // return garbage value bc inaccesibel to the CPU 
+        }
+
         mem->VRAM[mem->IORegisters[0x4F] & 1][addr - 0x8000] = value;
     }else if(addr < 0xC000){
         //ExRAM (on cartridge)
@@ -120,10 +148,17 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
     }else if(addr < 0xFEA0){
         //OAM hold the attributes of objects / sprites
         // can only be written to duuring hblankad vblank periods
+
+        if(mem->ppu.mode >= 2){
+            return; // return garbage value bc inaccesibel to the CPU 
+        }
+
         mem->OAM[addr - 0xFE00] = value;
     }else if(addr < 0xFF00){
         ; //Forbidden memory
     }else if(addr < 0xFF80){
+        // IO shizz
+
         if(addr == 0xFF01){
             mem->serial_output[mem->buffer_pointer++] = (char) value;
         }
@@ -138,6 +173,10 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
         }else if(addr == 0xFF55 && !mem->vdma.active){
             mem->IORegisters[addr - 0xFF00] = value;
             mem->vdma.active = 1;
+        }else if(addr == 0xFF46 && !mem->vdma.active){
+            mem->IORegisters[addr - 0xFF00] = value;
+            mem->vdma.active = 1;
+            mem->vdma.oam_mode = 1;
         }else{
             mem->IORegisters[addr - 0xFF00] = value;
         }
@@ -182,6 +221,7 @@ uint8_t raw_read_byte(GBMemory_t *mem, uint8_t addr){ // reads a byte from memor
         return mem->WRAM0[addr - 0xE000];
     }else if(addr < 0xFEA0){
         //OAM
+        
         return mem->OAM[addr - 0xFE00];
     }else if(addr < 0xFF00){
         //Forbidden memory (nintendo says u cant use this memory)
@@ -213,13 +253,10 @@ void dma_update(GBMemory_t *mem){
 
     mem->vdma.source =  (((uint16_t) mem->IORegisters[0x51]) << 8  | (mem->IORegisters[0x52] & 0xF0));
     mem->vdma.dest =0x8000 | ((uint16_t)(mem->IORegisters[0x53] & 0x1F) << 8) | (mem->IORegisters[0x54] & 0xF0);
+    mem->vdma.hblank_mode = (mem->IORegisters[0x55] >> 7) & 1; 
+
 
     if (!mem->vdma.active) return;
-
-    if(mem->vdma.hblank_mode){
-        // need the PPU for dih wun rih here
-        return;
-    }
 
     int bytes_this_cycle;
 
@@ -229,20 +266,45 @@ void dma_update(GBMemory_t *mem){
         bytes_this_cycle = 2; // normal speed
     }
 
-    for(int i = 0; i < bytes_this_cycle && mem->vdma.bytes_remaining; i++){
-        uint8_t value = raw_read_byte(mem, mem->vdma.source);
+    if(mem->vdma.hblank_mode){
+        // need the PPU for dih wun rih here
+        return;
+    }else if(mem->vdma.oam_mode && mem->vdma.rem_oam_dma <= 0){
+        mem->vdma.oam_mode = 0; 
+        mem->vdma.rem_oam_dma = 160; 
+    } else if(mem->vdma.oam_mode){
+        // oam dma takes 160 m-cycles
+        for(int i = 0; i < bytes_this_cycle && mem->vdma.bytes_remaining; i++){
+            uint8_t value = raw_read_byte(mem, mem->vdma.source);
 
-        uint8_t bank = mem->IORegisters[0x4F] & 1;
+            uint8_t bank = mem->IORegisters[0x4F] & 1;
 
-        mem->VRAM[bank][mem->vdma.dest - 0x8000] = value;
+            mem->OAM[mem->vdma.dest - 0xFE00] = value;
 
-        mem->vdma.source++;
-        mem->vdma.dest++;
-        mem->vdma.bytes_remaining--;
+            mem->vdma.source++;
+            mem->vdma.dest++;
+            mem->vdma.bytes_remaining--;
+        }
+    }else{ // GENERAL PURPOSE VDMA
+        for(int i = 0; i < bytes_this_cycle && mem->vdma.bytes_remaining; i++){
+            uint8_t value = raw_read_byte(mem, mem->vdma.source);
+
+            uint8_t bank = mem->IORegisters[0x4F] & 1;
+
+            mem->VRAM[bank][mem->vdma.dest - 0x8000] = value;
+
+            mem->vdma.source++;
+            mem->vdma.dest++;
+            mem->vdma.bytes_remaining--;
+        }
+
+        if(mem->vdma.bytes_remaining == 0){
+            mem->vdma.active = 0;
+            mem->IORegisters[0x55] = 0xFF;
+        }
+
+        return; 
     }
-
-    if(mem->vdma.bytes_remaining == 0){
-        mem->vdma.active = 0;
-        mem->IORegisters[0x55] = 0xFF;
-    }
+    
+    
 }

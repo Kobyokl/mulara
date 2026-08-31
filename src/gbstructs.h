@@ -34,6 +34,8 @@ typedef struct VDMA {
     unsigned int bytes_remaining; // how many bytes we gotta copy ?
     unsigned char active; // r we doign the  dma or naw
 
+
+
     unsigned char hblank_mode; //  0 for GDMA and 1 for the other one
     unsigned char oam_mode; // if there's an OAM DMA active then this will be set to 1
     unsigned char rem_oam_dma; // how many cycles we have left for the oam dma transfer
@@ -47,14 +49,18 @@ typedef struct VDMA {
  
 typedef struct PPU {
 
+    uint8_t active; 
+    
     unsigned int dot;  
     unsigned int line_counter; 
     unsigned int window_line_counter; 
+
     // idrk what to put here yet
 
     unsigned char mode; // 0, 1, 2, or 3
+    unsigned char stat_or; // the OR'ed line for stat interrupts 
 
-    unsigned char rem_dots; // dots remaining for the PPU mode we're curently rendering
+    unsigned int rem_dots; // dots remaining for the PPU mode we're curently rendering
 
 } PPU_t;
 

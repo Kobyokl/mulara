@@ -16,65 +16,83 @@
 //     unsigned char rem_penalty; //handles mode 3 dot penalties
 
 // } PPU_t;
+void stat_handlin(GBMemory_t *mem){
+    uint8_t stat = mem->IORegisters[0x41];
+    uint8_t ly_eq_lyc = mem->IORegisters[0x44] == mem->IORegisters[0x45];
 
-void ppu_update(GBMemory_t *mem){
-    // we will handle the status registers 
-    // on each call of this function (each dot) we also we either otuput a pixel or we're stalling the FIFOs
-    
-    // handle lcd interrupt calling (aka STAT interrupt)
-    uint8_t lyc_select = (mem->IORegisters[0x41] >> 6) & 1; 
-    if(lyc_select){
-        if(mem->IORegisters[0x45] == mem->IORegisters[0x44]){
-            uint8_t ly_lyc = ((mem->IORegisters[0x41] >> 2) & 1); 
-            
-            if(!ly_lyc) request_interrupt(LCD, mem); 
-            
-            mem->IORegisters[0x41] |= 4; // set the lyc == ly bit
-        }else{
-            mem->IORegisters[0x41] &= ~((uint8_t) 4);
-        }
-    }else{
-        uint8_t mode_select = (mem->IORegisters[0x41] >> 3 ) & 7; 
-        
-        switch(mode_select){
-            case(1):
-            {
-                // selected mode 0 for stat interrupt
-                if(mem->ppu.dot
-            }
-            case(2):
-            {
-                // selected mode 1 for 
-            }
-            case(4):
-            {
-                // selected mode 2 for stat interrupt 
-            }
-        }
+    uint8_t stat_line = // logical oring assures things stay within 1 bit rather than bytewise oring and we dont have to do any bitshifting
+        ((stat & 0x08) && mem->ppu.mode == 0) ||
+        ((stat & 0x10) && mem->ppu.mode == 1) ||
+        ((stat & 0x20) && mem->ppu.mode == 2) ||
+        ((stat & 0x40) && ly_eq_lyc);
+
+    mem->IORegisters[0x41] &= 0xF8;
+    mem->IORegisters[0x41] |= (ly_eq_lyc << 2); // ly == lyc flag 
+    mem->IORegisters[0x41] |= (mem->ppu.mode & 0x03); // updates bottom 2 bits of stat reg
+
+
+    if (stat_line && !mem->ppu.stat_or) {
+        request_interrupt(LCD, mem);
     }
+    
 
+    mem->ppu.stat_or = stat_line;
+}
 
+void mode_switcher(GBMemory_t *mem){
+    // mode switcher
     if(mem->ppu.mode == 2 && mem->ppu.rem_dots <= 0){
         mem->ppu.mode = 3;
-        mem->ppu.rem_dots = 172; 
+        mem->ppu.rem_dots = 172;
+
     }else if(mem->ppu.mode == 3 && mem->ppu.rem_dots <= 0 ){
-        mem->ppu.mode = 0;
-        mem->ppu.rem_dots = 87; 
-    }else if(mem->ppu.mode == 0 && mem->ppu.rem_dots <= 0 && !(mem->IORegisters[0x44] == 145)){
+        mem->ppu.mode = 0;        
+        mem->ppu.rem_dots = 204; 
+    
+    }else if(mem->ppu.mode == 0 && mem->ppu.rem_dots <= 0 && mem->IORegisters[0x44] < 144 ){
         mem->ppu.mode = 2;
         mem->ppu.rem_dots = 80; 
-    }else if(mem->ppu.mode == 0 && mem->ppu.rem_dots <= 0 && !(mem->IORegisters[0x44] == 145)){
+
+    }else if(mem->ppu.mode == 0 && mem->ppu.rem_dots <= 0 && mem->IORegisters[0x44] >= 144){
         mem->ppu.mode = 1; 
         mem->ppu.rem_dots = 4560; 
-    }else{
-        mem->ppu.rem_dots--; 
+
+    }else if(mem->ppu.mode == 1 && mem->ppu.rem_dots <= 0){ // we're done vblank and we can move to processing next framm
+
+        mem->ppu.mode = 2; 
+        mem->ppu.rem_dots = 80;
+
+        mem->IORegisters[0x44] = 0; // restart LY register to start processing next frame
     }
-    
 
-    mem->ppu.dot = (mem->ppu.dot == 455) ? 0 : ++mem->ppu.dot; 
-    
+}
+
+uint8_t penalty_handler(GBMemory_t *mem){
+    return 0; 
+}
+
+void ppu_update(GBMemory_t *mem){
+    mem->ppu.active = (mem->IORegisters[0x40] >> 7) & 1; 
+    if(!mem->ppu.active) return; 
+
+    // handle the actions per mode
+    switch(mem->ppu.mode){
+        case 2: break; // search fo objs that overlap the scanline we're on 
+        case 3: break; // send pixels to the lcd 
+        case 0: break; // wait until the end of the scanline 
+        case 1: break; // wait until the next frame 
+    }
+
+    mem->ppu.rem_dots--; 
 
 
+    if (mem->ppu.dot >= 455) {
+        mem->IORegisters[0x44]++; 
+        mem->ppu.dot = 0; 
+    }else{ mem->ppu.dot++; }
+
+    mode_switcher(mem);
+    stat_handlin(mem);
 }
 
 

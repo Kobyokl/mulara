@@ -165,6 +165,14 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
 
         if(addr == 0xFF04){
             mem->DIV = 0;
+        }else if(addr == 0xFF44){
+            return;
+        }else if(addr == 0xFF41){
+            mem->IORegisters[0x41] = (mem->IORegisters[0x41] & 0x87) | (value & 0x78); // preserve the read only status bits (the bottom 3)
+            stat_handlin(mem);
+        }else if(addr == 0xFF45){
+            mem->IORegisters[addr - 0xFF00] = value;
+            stat_handlin(mem);
         }else if(addr == 0xFF05 && mem->TIMA_overflowing){
             mem->TIMA_overflowing = 0; // cancel the interrupt and the writing to TIMA with TMA...
             mem->IORegisters[0x05] = value;

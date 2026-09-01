@@ -52,15 +52,23 @@ typedef struct PPU {
     uint8_t active; 
     
     unsigned int dot;  
-    unsigned int line_counter; 
+    unsigned int y_condition; // for window rendering
     unsigned int window_line_counter; 
+    uint8_t lcdc; 
+    unsigned int screen_x; 
 
+
+    char fetching_state; // 'w' for window 'b' for background 'o' for obj
     // idrk what to put here yet
 
     unsigned char mode; // 0, 1, 2, or 3
     unsigned char stat_or; // the OR'ed line for stat interrupts 
 
     unsigned int rem_dots; // dots remaining for the PPU mode we're curently rendering
+    unsigned int line_penalty; // counts pentalty to add rem dots to mode 3 and remove them from mode 0
+
+    unsigned int obj_fifo[16]; // will contain at least 8 pixels at any given time
+    unsigned int bg_fifo[16]; // will contain at least 8 pixels at any given time
 
 } PPU_t;
 
@@ -110,6 +118,8 @@ typedef struct GBMemory {
     SharpState_t *CPU; // cuz im lazy and a mid dev (will do better in future)
     char serial_output[200];
     int buffer_pointer;
+
+    int framebuffer[160][144]; // the framebuffer we're gonn render the shi to !
 } GBMemory_t;
 
 

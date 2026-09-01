@@ -4,6 +4,7 @@ void request_interrupt(Interrupt_t inter, GBMemory_t *mem){
     switch(inter){
         case VBlank:
         {
+            mem->ppu.y_condition = 0; 
             mem->IORegisters[0x0F] |= 1;
             break;
         }

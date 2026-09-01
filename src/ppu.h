@@ -5,7 +5,7 @@
 
 
 typedef struct Tile {
-
+    int8_t index;
     // for these arrays bit 7 is the leftmost pixel adn bit 0 is the rightmost pixel
     // this is for both bytes and they come together to create the 2 bit color_depth for each pixxel
     // so the bits of the two arrays will be combined to create the tile mapping
@@ -16,6 +16,7 @@ typedef struct Tile {
 
     uint8_t a_h[8]; // 3C 42 42 42 7E 7E 7C 38
     uint8_t i_p[8]; // 7E 42 42 42 5E 0A 56 7C
+     
 
     // ^^^ these arrays may not be stored in this struct in the future...
 

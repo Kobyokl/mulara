@@ -8,6 +8,8 @@
 
 void tick(GBMemory_t *mem){
     mem->sys_clock++; // increment the cpu 1 m-cycle
+    mem->ppu.lcdc = mem->IORegisters[0x40]; 
+
 
     if(mem->CPU->state == 'w') {
         if(mem->sys_clock - mem->CPU->wm_cycle >= 2050){
@@ -167,6 +169,11 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
             mem->DIV = 0;
         }else if(addr == 0xFF44){
             return;
+        }else if(addr == 0xFF40){
+            mem->IORegisters[addr - 0xFF00] = value; 
+            if((mem->ppu.lcdc >> 5) && !(mem->IORegisters[0x40] >> 5)){ // window enable bit cleared
+                mem->ppu.y_condition = 0; // reset the y condition
+            }
         }else if(addr == 0xFF41){
             mem->IORegisters[0x41] = (mem->IORegisters[0x41] & 0x87) | (value & 0x78); // preserve the read only status bits (the bottom 3)
             stat_handlin(mem);
@@ -195,6 +202,7 @@ void write_byte(GBMemory_t *mem, uint16_t addr, uint8_t value){
         mem->interrupt_enable = value;
     }
 
+    
 
     return;
 }

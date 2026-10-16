@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#include "ppu.h" 
+
 // a struct to keep track of cpu states
 typedef struct SharpState {
     int cgb_mode;
@@ -65,10 +67,23 @@ typedef struct PPU {
     unsigned char stat_or; // the OR'ed line for stat interrupts 
 
     unsigned int rem_dots; // dots remaining for the PPU mode we're curently rendering
-    unsigned int line_penalty; // counts pentalty to add rem dots to mode 3 and remove them from mode 0
+    unsigned int line_penalty; // counts pentalty to add rem dots to mode 3 and remove them from mode 0 
 
-    unsigned int obj_fifo[16]; // will contain at least 8 pixels at any given time
-    unsigned int bg_fifo[16]; // will contain at least 8 pixels at any given time
+    uint8_t SCX;
+    uint8_t SCY; 
+
+    // structure of a pixel : 
+    int obj_index; 
+    int bg_index; 
+    
+     Pixel_t obj_fifo[16]; // will contain at least 8 pixels at any given time
+     Pixel_t bg_fifo[16]; // will contain at least 8 pixels at any given time
+    
+    unsigned int fetcher_x;
+    uint8_t pushing; // step 5 of the pixel fifo 
+    uint8_t vram_bank; 
+    uint8_t tile_row; 
+    char fifo_state; // 't', 'l', 'h', 's', 'p' fro the 5 stages of the tile
 
 } PPU_t;
 

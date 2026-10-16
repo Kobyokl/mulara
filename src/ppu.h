@@ -2,41 +2,22 @@
 
 #include "bus.h"
 
+typedef struct Pixel {
+    uint8_t color; // value between 0 and 3
+    uint8_t palette; // value between 0 and 7 
+    uint8_t sprite_prio; // the oam index for the object
+    uint8_t bg_prio; // has the obj vs bg priority shii
+} Pixel_t ; 
 
 
-typedef struct Tile {
-    int8_t index;
-    // for these arrays bit 7 is the leftmost pixel adn bit 0 is the rightmost pixel
-    // this is for both bytes and they come together to create the 2 bit color_depth for each pixxel
-    // so the bits of the two arrays will be combined to create the tile mapping
-    
 
-    // if tile data is  tile data $3C $7E $42 $42 $42 $42 $42 $42 $7E $5E $7E $0A $7C $56 $38 $7C
-    // then these array contents will be as follows: 
-
-    uint8_t a_h[8]; // 3C 42 42 42 7E 7E 7C 38
-    uint8_t i_p[8]; // 7E 42 42 42 5E 0A 56 7C
-     
-
-    // ^^^ these arrays may not be stored in this struct in the future...
-
-    uint8_t color_depths[8][8]; // will store the tile's color indexes in a 2D array by combining a_h and i_p..  
-    
-    // the combination of the two 1D arrays will look something like this :
-    
-    /*
-            for(int i = 0; i < 8; i++){
-                for(int j = 0; j < 8; j++){
-                    color_depths[i][j] = 
-                    ((i_p[i] >> (7 - j) & 1) << 1) 
-                    |
-                    ((a_h[i] >> (7 - j)) & 1); 
-                }
-            }
-    */ 
-} Tile_t;
 
 // condiders lcdc.4 and the correct tile index of the tile map 
 uint8_t bg_color_index(uint8_t bg); 
 
+
+void mode_switcher(GBMemory_t *mem); 
+void set_ppu_mode(GBMemory_t *mem, uint8_t mode, uint16_t dots); 
+char bg_obj_priority(GBMemory_t *mem, uint16_t bg, uint16_t obj); 
+void stat_handlin(GBMemory_t *mem); 
 void ppu_update(GBMemory_t *mem); 

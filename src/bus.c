@@ -8,8 +8,6 @@
 
 void tick(GBMemory_t *mem){
     mem->sys_clock++; // increment the cpu 1 m-cycle
-    mem->ppu.lcdc = mem->IORegisters[0x40]; 
-
 
     if(mem->CPU->state == 'w') {
         if(mem->sys_clock - mem->CPU->wm_cycle >= 2050){
@@ -21,6 +19,7 @@ void tick(GBMemory_t *mem){
     dma_update(mem);
 
     if(mem->vdma.oam_mode && mem->vdma.rem_oam_dma >= 0){
+        
         mem->vdma.rem_oam_dma -= mem->CPU->double_speed == 1 ? 2 : 1;
     }
 
@@ -29,6 +28,7 @@ void tick(GBMemory_t *mem){
     int ppu_dots = mem->CPU->double_speed == 1 ? 2 : 4; // handle time keeping system of the PPU and update it accordingly
 
     for(int i = 0; i < ppu_dots; i++){
+        mem->ppu.lcdc = mem->IORegisters[0x40]; 
         ppu_update(mem);
     }
 

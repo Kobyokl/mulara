@@ -122,26 +122,26 @@ void ppu_update(GBMemory_t *mem){
     mem->ppu.active = (mem->ppu.lcdc >> 7) & 1; 
     if(!mem->ppu.active) return; 
 
-
-    
-    
-
     // handle the actions per mode
     switch(mem->ppu.mode){
-        case 2: break; // search fo objs that overlap the scanline we're on 
+        case 2: break; // search of objs that overlap the scanline we're on 
 
 
         case 3:  // send pixels to the lcd 
         {
+
+            // fetch pixel to add to buffer
+            // pixel_fetch(mem); or something
+
+
             if(mem->ppu.screen_x + 7 == mem->IORegisters[0x4B] && mem->ppu.y_condition && (mem->ppu.lcdc >> 5)){ // if we're on a pixel where were goign to render the window
                 mem->ppu.fetching_state = 'w';
-             } 
+            } 
             
 
-             // fetch pixel to add to buffer
-             // pixel_fetch(mem); or something
              
-             mem->ppu.screen_x++; 
+             //if we actually fukin render a pixel thennn: 
+                mem->ppu.screen_x++; 
             
             break;
         } 
@@ -157,12 +157,15 @@ void ppu_update(GBMemory_t *mem){
 
     if (mem->ppu.dot >= 455) {
         mem->IORegisters[0x44]++; // increment the scanline
+        mem->ppu.SCX = mem->IORegisters[0x43]; 
+        mem->ppu.SCY = mem->IORegisters[0x42]; 
 
         if(mem->IORegisters[0x4A] == mem->IORegisters[0x44]{ // check the LY condition
             mem->ppu.y_condition = 1; 
         } 
 
         mem->ppu.dot = 0; 
+        
     }else{ mem->ppu.dot++; }
 
     mode_switcher(mem);
